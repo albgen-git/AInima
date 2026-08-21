@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Ainima — {{ u.nome }} {{ u.cognome }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 0; padding: 24px; }
+  a.back { color: #8fa8ff; text-decoration: none; font-size: 14px; }
+  h1 { margin: 8px 0 20px; }
+  .photos { display: flex; gap: 20px; margin-bottom: 24px; }
+  .photos figure { margin: 0; text-align: center; }
+  .photos img { width: 160px; height: 160px; object-fit: cover; border-radius: 10px; border: 1px solid #333; }
+  .photos figcaption { font-size: 12px; color: #999; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
+  .card { background: #24242a; border: 1px solid #333; border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #9aa; margin: 0 0 12px; }
+  .field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .field label { flex: 0 0 160px; font-size: 13px; color: #aaa; }
+  .field input, .field select { flex: 1; background: #1a1a1e; border: 1px solid #444; color: #eee; padding: 6px 8px; border-radius: 5px; font-size: 13px; }
+  .field button { background: #4a5cf0; border: none; color: #fff; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+  .readonly { font-size: 13px; color: #ccc; padding: 6px 0; }
+  .no-data { color: #666; font-style: italic; font-size: 13px; }
+</style>
+</head>
+<body>
+  <a class="back" href="/">&larr; Torna alla lista</a>
+  <h1>{{ u.nome }} {{ u.cognome }} <span style="color:#777; font-weight:400; font-size:15px;">(actor #{{ u.source_actor_id }})</span></h1>
+
+  <div class="photos">
+    <figure>
+      <img src="/photos/{{ tabelle.physical_profile.foto_profilo_url }}" onerror="this.src=''; this.alt='(nessuna foto)'">
+      <figcaption>Foto profilo</figcaption>
+    </figure>
+    <figure>
+      {% if tabelle.physical_profile.foto_partner_ideale_url %}
+      <img src="/photos/{{ tabelle.physical_profile.foto_partner_ideale_url }}">
+      {% else %}
+      <div style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;color:#666;border:1px dashed #444;border-radius:10px;">nessuna</div>
+      {% endif %}
+      <figcaption>Foto "partner ideale"</figcaption>
+    </figure>
+  </div>
+
+  <div class="grid">
+    {% for tabella, campi in editable.items() %}
+    <div class="card">
+      <h2>{{ tabella }}</h2>
+      {% if tabelle[tabella] %}
+        {% for campo, tipo in campi.items() %}
+        <form class="field" method="post" action="/users/{{ user_id }}/update">
+          <input type="hidden" name="tabella" value="{{ tabella }}">
+          <input type="hidden" name="campo" value="{{ campo }}">
+          <label>{{ campo }}</label>
+          {% if tipo == "enum" %}
+          <select name="valore">
+            {% for opt in enum_options[campo] %}
+            <option value="{{ opt }}" {% if tabelle[tabella][campo] == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+          {% elif tipo == "bool" %}
+          <select name="valore">
+            <option value="true" {% if tabelle[tabella][campo] == True %}selected{% endif %}>Sì</option>
+            <option value="false" {% if tabelle[tabella][campo] == False %}selected{% endif %}>No</option>
+          </select>
+          {% else %}
+          <input type="text" name="valore" value="{{ tabelle[tabella][campo] if tabelle[tabella][campo] is not none else '' }}">
+          {% endif %}
+          <button type="submit">Salva</button>
+        </form>
+        {% endfor %}
+      {% else %}
+        <div class="no-data">Nessun dato in questa tabella per questo utente.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="card">
+      <h2>psychometric_scores — attaccamento (sola lettura)</h2>
+      {% if tabelle.psychometric_scores.stile_attaccamento %}
+        <div class="readonly">{{ tabelle.psychometric_scores.stile_attaccamento }}
+          (ansia={{ tabelle.psychometric_scores.ansia_score }}, evitamento={{ tabelle.psychometric_scores.evitamento_score }})</div>
+      {% else %}
+        <div class="no-data">N/D</div>
+      {% endif %}
+      <h2 style="margin-top:16px;">flag_profilo_per_revisione_dati (sola lettura)</h2>
+      <div class="readonly">{{ tabelle.psychometric_scores.flag_profilo_per_revisione_dati }}</div>
+    </div>
+  </div>
+</body>
+</html>

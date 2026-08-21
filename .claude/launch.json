@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-api",
+      "runtimeExecutable": "C:\\Users\\PC\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--app-dir", "backend", "--port", "8010"],
+      "port": 8010
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "C:\\Users\\PC\\Desktop\\AInima Project\\frontend\\dev.cmd",
+      "runtimeArgs": [],
+      "port": 3000
+    }
+  ]
+}

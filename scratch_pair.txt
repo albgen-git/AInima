@@ -1,0 +1,114 @@
+===== bdf662df-856f-4174-b679-21b80d89dc50
+  nome: Amina
+  cognome: Fontana
+  genere: Femminile
+  orientamento_sessuale: Omosessuale
+  data_nascita: 1991-01-09
+  stato_civile: Celibe/Nubile
+  ha_figli: False
+  altezza_cm: 169
+  peso_kg: 84.5
+  corporatura: Robusta
+  colore_capelli: Castano chiaro
+  colore_occhi: Marroni
+  fumo: False
+  alcol: False
+  stile_vita_sport: None
+  foto_profilo_url: profilo/bdf662df-856f-4174-b679-21b80d89dc50.jpg
+  foto_partner_ideale_url: partner_ideale/bdf662df-856f-4174-b679-21b80d89dc50.jpg
+  comune_residenza: Sesto San Giovanni
+  titolo_studio: Dottorato di ricerca
+  settore_occupazionale: Media e comunicazione
+  fede_religiosa: Induista
+  importanza_religione: 4
+  pref_genere_cercato: Femminile
+  pref_eta_min: 30
+  pref_eta_max: 40
+  pref_accetta_figli: Si
+  pref_desidera_figli_futuri: Da valutare
+  pref_altezza_min: 159
+  pref_altezza_max: 175
+  pref_fumo: None
+  pref_alcol: None
+  pref_importanza_religione: 1
+  score_big5_estroversione: 0.1755203
+  score_big5_gradevolezza: 0.36275902
+  score_big5_coscienziosita: 0.42611665
+  score_big5_nevroticismo: 0.48868868
+  score_big5_apertura: 0.18086852
+  score_maturita_emotiva: 0.7904544
+  eq_pilastro_autoconsapevolezza: 0.38937947
+  eq_pilastro_autoregolazione: 0.8655497
+  eq_pilastro_empatia: 0.9716571
+  eq_pilastro_responsabilita: 0.9352312
+  ansia_score: 0.0
+  evitamento_score: 0.3569562
+  stile_attaccamento: Sicuro
+  self_profile_canonico: VALORI E PRIORITÀ: Informazione non disponibile nel materiale fornito.
+STILE DI VITA: Risiede a Sesto San Giovanni e lavora nel settore Media e comunicazione. Predilige una routine chiara e manifesta disagio di fronte alle grandi novità.
+DINAMICA RELAZIONALE: Nelle situazioni di stress tende a fermarsi prima di reagire d'istinto. Nelle relazioni cerca un equilibrio tra esprimere il proprio pensiero e venire incontro all'altra persona, manifestando fiducia e apertura.
+ASPIRAZIONI: Informazione non disponibile nel materiale fornito.
+  ideal_partner_profile_canonico: VALORI E PRIORITÀ: Viene cercata una persona naturale, capace di vivere il rapporto senza la necessità di continue conferme, orientata alla condivisione totale e autentica.
+STILE DI VITA: Si immagina una vita quotidiana fatta di momenti semplici e condivisi, come una passeggiata serale, caratterizzata dalla comunicazione spontanea e dalla condivisione anche delle piccole cose di tutti i giorni.
+DINAMICA RELAZIONALE: La dinamica relazionale desiderata è basata sul benessere reciproco, sulla spontaneità, sulla tranquillità emotiva e sulla totale condivisione del vissuto quotidiano.
+ASPIRAZIONI: Si auspica la possibilità di costruire un futuro in cui poter affrontare con calma e serenità anche temi importanti, come l'eventuale arrivo dei figli.
+  descrizione_di_se: Vivo a Sesto San Giovanni e lavoro nel settore Media e comunicazione. Sono una persona piuttosto riservata/o, mi apro solo quando conosco bene qualcuno. Mi trovo bene con una routine chiara, le grandi novità mi mettono un po' a disagio. Quando sono sotto stress cerco di fermarmi un attimo prima di reagire d'istinto. Nelle relazioni cerco un equilibrio tra dire quello che penso e venire incontro all'altra persona. Nelle relazioni mi sento abbastanza sicuro/a: mi fido facilmente e non ho paura di aprirmi.
+  descrizione_partner_ideale: Mi vedo con una donna che ha voglia di fare una passeggiata la sera, parlando di tutto e di niente. Cerco qualcuno con cui stare bene senza bisogno di continue conferme, in modo naturale. Mi piacerebbe condividere davvero tutto, anche le cose più piccole della giornata. Non ho ancora le idee chiarissime sui figli, ma vorrei poterne parlare con calma con questa persona.
+
+===== 00480ffd-6019-46fa-920d-e2ee2d998c52
+  nome: Chiara
+  cognome: Vitale
+  genere: Femminile
+  orientamento_sessuale: Asessuale
+  data_nascita: 1991-11-14
+  stato_civile: Separato/a
+  ha_figli: False
+  altezza_cm: 155
+  peso_kg: 56.4
+  corporatura: Atletica
+  colore_capelli: Rosso
+  colore_occhi: Marroni
+  fumo: False
+  alcol: False
+  stile_vita_sport: None
+  foto_profilo_url: profilo/00480ffd-6019-46fa-920d-e2ee2d998c52.jpg
+  foto_partner_ideale_url: partner_ideale/00480ffd-6019-46fa-920d-e2ee2d998c52.jpg
+  comune_residenza: Sesto San Giovanni
+  titolo_studio: Diploma superiore
+  settore_occupazionale: Edilizia e ingegneria
+  fede_religiosa: Agnostica
+  importanza_religione: 5
+  pref_genere_cercato: Femminile
+  pref_eta_min: 24
+  pref_eta_max: 44
+  pref_accetta_figli: No
+  pref_desidera_figli_futuri: Si
+  pref_altezza_min: 152
+  pref_altezza_max: 173
+  pref_fumo: True
+  pref_alcol: True
+  pref_importanza_religione: None
+  score_big5_estroversione: 0.4822742
+  score_big5_gradevolezza: 0.156496
+  score_big5_coscienziosita: 0.5068774
+  score_big5_nevroticismo: 0.59397674
+  score_big5_apertura: 0.44241658
+  score_maturita_emotiva: 0.50621957
+  eq_pilastro_autoconsapevolezza: 0.3897153
+  eq_pilastro_autoregolazione: 0.67034036
+  eq_pilastro_empatia: 0.55276716
+  eq_pilastro_responsabilita: 0.4120555
+  ansia_score: 0.006644521
+  evitamento_score: 0.39188486
+  stile_attaccamento: Sicuro
+  self_profile_canonico: VALORI E PRIORITÀ: Informazione non disponibile nel materiale fornito.
+STILE DI VITA: La persona vive a Sesto San Giovanni e lavora nell'edilizia e ingegneria. Alterna uscite con gli amici a serate tranquille a casa, variando le attività senza stravolgere le proprie abitudini. Gestisce i giorni con gradi differenti di tranquillità.
+DINAMICA RELAZIONALE: Nelle relazioni cerca un equilibrio tra esprimere il proprio pensiero e venire incontro all'altra persona. Mantiene autonomia e capacità di stare bene sia in coppia sia da sola, senza ansia o distanza eccessiva.
+ASPIRAZIONI: Informazione non disponibile nel materiale fornito.
+  ideal_partner_profile_canonico: VALORI E PRIORITÀ: Informazione non disponibile nel materiale fornito
+STILE DI VITA: Ritmi rilassati la mattina, con la tendenza a prendersi il proprio tempo; apprezzamento per la condivisione delle piccole cose quotidiane e per un contesto familiare che include dei bambini.
+DINAMICA RELAZIONALE: Una relazione naturale, basata sul benessere reciproco e sulla tranquillità, senza la necessità di continue conferme, caratterizzata da una forte condivisione della vita di tutti i giorni.
+ASPIRAZIONI: La costruzione di un futuro condiviso che preveda la presenza di bambini e una vita familiare strutturata insieme.
+  descrizione_di_se: Vivo a Sesto San Giovanni e lavoro nel settore Edilizia e ingegneria. Mi piace uscire con gli amici, ma so anche godermi una serata tranquilla a casa. Mi piace variare, senza però stravolgere troppo spesso le mie abitudini. Ci sono giorni in cui gestisco tutto con calma e altri in cui fatico di più — è normale, credo. Nelle relazioni cerco un equilibrio tra dire quello che penso e venire incontro all'altra persona. Riesco a stare bene sia in coppia sia per conto mio, senza troppa ansia o troppa distanza.
+  descrizione_partner_ideale: Mi immagino una donna con cui la domenica mattina si fa colazione con calma, senza fretta di alzarsi. Cerco qualcuno con cui stare bene senza bisogno di continue conferme, in modo naturale. Mi piacerebbe condividere davvero tutto, anche le cose più piccole della giornata. Nella scena che immagino ci sono anche dei bambini, è una parte importante del futuro che vorrei.
+

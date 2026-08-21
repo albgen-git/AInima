@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/*
+ * Sistema di design Ainima — allineato esattamente a docs/ainima-tokens.css
+ * e docs/AInima_guida_stile.md (fonte di verità unica per palette/tipografia,
+ * non reinterpretare i valori). Agenzia matrimoniale seria, non app di
+ * dating: superfici piatte, nessun gradiente/ombra pesante/glassmorphism.
+ */
+@theme inline {
+  --color-ivory: #f6f1e7;
+  --color-ivory-light: #fbf8f1;
+  --color-navy: #1b2340;
+  --color-gold: #b8934a;
+  --color-gold-dark: #8a5a2b;
+  --color-slate: #45465a;
+  --color-sage: #6b8f71;
+  --color-terracotta: #a34a3d;
+  --color-border: #e4dbc6;
+  --color-border-dark: #3a4166;
+
+  --font-sans: var(--font-karla);
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+}
+
+body {
+  background: var(--color-ivory);
+  color: var(--color-navy);
+}
+
+/* Tailwind v4 non genera automaticamente un'utility font-* per chiavi
+   --font-* custom dentro @theme inline (verificato: nessuna regola CSS
+   emessa per .font-display) — definita qui a mano invece. */
+.font-display {
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+/* Ombra card unica ammessa dalla guida di stile — mai altre ombre pesanti. */
+.shadow-card {
+  box-shadow: 0 1px 3px rgba(27, 35, 64, 0.06);
+}
+
+/* Focus visibile bordo blu notte su ogni elemento interattivo — mai
+   l'outline blu default del browser (requisito esplicito guida §7). */
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+}

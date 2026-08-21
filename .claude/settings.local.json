@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(grep -c '\\\\.jpg$')",
+      "Bash(grep -c '\\\\.png$')",
+      "Bash(where psql *)",
+      "Bash(where pg_isready)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Bash(powershell.exe -NoProfile -Command \"Get-Service -Name 'postgresql*' | Select-Object Name,Status\")",
+      "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe scripts/generate_synthetic_data.py)",
+      "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe -)",
+      "Bash(mkdir -p \"/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-Desktop-AInima-Project/996df2a7-58fd-483a-8761-1dad381f33ac/scratchpad/review_pi_photos\")",
+      "Bash(cd \"/c/Users/PC/Desktop/AInima Project\")",
+      "Read(//c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-Desktop-AInima-Project/996df2a7-58fd-483a-8761-1dad381f33ac/scratchpad/**)",
+      "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe scripts/simulate_matching.py 5)",
+      "Bash(cd \"/c/Users/PC/Desktop/AInima Project/scripts\")",
+      "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe simulate_matching_batch.py)",
+      "Bash(where php *)",
+      "Bash(where mysql *)",
+      "Bash(powershell.exe -NoProfile -Command 'Get-Service | Where-Object {$_.Name -like '\\\\''*mysql*'\\\\''} | Select-Object Name,Status')",
+      "Bash(curl -s http://localhost:8010/admin/metrics)",
+      "Bash(curl -s \"http://localhost:8010/users/6a425369-aa07-4c34-ab76-a124d98091ca/preferences\")",
+      "Bash(curl -s \"http://localhost:8010/users/6a425369-aa07-4c34-ab76-a124d98091ca/proposal\")",
+      "Bash(curl -s -X POST \"http://localhost:8010/admin/matching/run-cycle?dry_run=true\")",
+      "Bash(curl -s -X POST http://localhost:8010/auth/register -H 'Content-Type: application/json' -d '{\"nome\":\"Test\",\"cognome\":\"Smoke\",\"email\":\"test.smoke@example.com\",\"password\":\"password123\",\"data_nascita\":\"1990-01-01\",\"genere\":\"Maschile\",\"orientamento_sessuale\":\"Eterosessuale\"}')",
+      "Bash(curl -s \"http://localhost:8010/users/6a425369-aa07-4c34-ab76-a124d98091ca/rubrica\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:8010/users/6a425369-aa07-4c34-ab76-a124d98091ca/matches/00000000-0000-0000-0000-000000000000/vcard\")",
+      "Bash(curl -s -X POST \"http://localhost:8010/admin/matching/run-cycle?dry_run=false\")",
+      "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe -c ' *)",
+      "Bash(\"/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe\" -c \"import anthropic; print\\(anthropic.__version__\\)\")",
+      "Bash(\"/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe\" -m pip install anthropic --quiet)"
+    ]
+  }
+}

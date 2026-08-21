@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Ainima — Admin Viewer</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 0; padding: 24px; }
+  h1 { font-size: 20px; }
+  .search { margin-bottom: 16px; }
+  input[type=text] { background: #2a2a30; border: 1px solid #444; color: #eee; padding: 8px; border-radius: 6px; width: 280px; }
+  button { background: #4a5cf0; border: none; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #333; }
+  th { color: #999; font-weight: 500; font-size: 13px; }
+  img.thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; }
+  a { color: #8fa8ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .pager { margin-top: 16px; display: flex; gap: 12px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #333; }
+  .badge.Attivo { background: #1d5c33; }
+</style>
+</head>
+<body>
+  <h1>Ainima — Admin Viewer ({{ totale }} utenti)</h1>
+  <form class="search" method="get" action="/">
+    <input type="text" name="q" placeholder="Cerca per nome, cognome o ID..." value="{{ q }}">
+    <button type="submit">Cerca</button>
+  </form>
+  <table>
+    <tr><th></th><th>ID</th><th>Nome</th><th>Genere</th><th>Stato</th></tr>
+    {% for u in utenti %}
+    <tr>
+      <td><img class="thumb" src="/photos/{{ u.foto_profilo_url }}" onerror="this.style.visibility='hidden'"></td>
+      <td>{{ u.source_actor_id }}</td>
+      <td><a href="/users/{{ u.user_id }}">{{ u.nome }} {{ u.cognome }}</a></td>
+      <td>{{ u.genere }}</td>
+      <td><span class="badge {{ u.stato_account }}">{{ u.stato_account }}</span></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="pager">
+    {% if offset > 0 %}
+      <a href="/?q={{ q }}&offset={{ offset - limit }}&limit={{ limit }}">&larr; Precedenti</a>
+    {% endif %}
+    {% if offset + limit < totale %}
+      <a href="/?q={{ q }}&offset={{ offset + limit }}&limit={{ limit }}">Successivi &rarr;</a>
+    {% endif %}
+  </div>
+</body>
+</html>
