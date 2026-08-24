@@ -22,11 +22,13 @@ export const matchingApi = {
     ),
 
   /**
-   * Coerenza narrativa (similarità vettoriale, non più Judge LLM — v.
-   * CLAUDE.md 2026-08-19). Richiede l'ID esplicito dell'altro utente —
-   * GET /users/{id}/proposal NON lo espone (proposta anonima per design,
-   * RF-12), quindi questa funzione non è collegabile alla schermata
-   * "Proposta di match" (v. getProposalAnalysis sopra, che non lo richiede).
+   * Coerenza narrativa (Test Profilo Relazionale, Blocco D — v. CLAUDE.md;
+   * non più similarità a embedding né Judge LLM). Endpoint admin/debug,
+   * mai chiamato da una pagina utente: richiede l'ID esplicito dell'altro
+   * utente — GET /users/{id}/proposal NON lo espone (proposta anonima per
+   * design, RF-12) — e ritorna il flag di asimmetria grezzo, non
+   * riformulato (v. getProposalAnalysis sopra per la versione rivolta
+   * all'utente).
    */
   getAffinity: (userId: string, otherUserId: string) =>
     apiClient.get<AffinityOut>(`/users/${userId}/affinity/${otherUserId}`),

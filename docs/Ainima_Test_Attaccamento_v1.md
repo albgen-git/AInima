@@ -86,6 +86,25 @@ evitamento_score = (media_EVITAMENTO - 1) / 4
 Questi due campi (non un'etichetta singola) sono il dato primario da
 salvare e usare nel matching.
 
+**Step 3bis — Controllo di coerenza interna (mancava — colmato dopo segnalazione in fase di implementazione)**
+
+Stessa identica logica già definita per il Big Five
+(`Ainima_Test_Psicometrico_BigFive_v1.md` §7 Step 4), applicata alle 2
+dimensioni di questo test, usando gli item invertiti già presenti
+(AN2/AN5/AN8 per Ansia, EV2/EV5/EV8 per Evitamento):
+
+```
+Per ciascuna delle 2 dimensioni (Ansia da Abbandono, Evitamento dell'Intimità):
+    range_dimensione = max(punteggi ricodificati della dimensione) - min(punteggi ricodificati della dimensione)
+    SE range_dimensione >= 3.5 (su scala 1-5): flag_dimensione_anomala = true
+    confidenza_dimensione = 0.6 se flag_dimensione_anomala altrimenti 1.0
+```
+
+Stesso utilizzo a valle (peso ridotto nel matching + invito opzionale
+su singola anomalia; contributo al conteggio `>= 2 dimensioni` che
+attiva `flag_profilo_per_revisione_dati`, sommato con Big Five ed EQ
+Score) — tabella completa in `Ainima_Test_Psicometrico_BigFive_v1.md` §7.
+
 **Step 4 — Etichetta di quadrante (SOLO per la UI, mai per il calcolo)**
 
 ```

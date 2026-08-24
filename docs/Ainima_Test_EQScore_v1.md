@@ -97,13 +97,29 @@ score_maturita_emotiva = (eq_pilastro_autoconsapevolezza * peso1)
 
 ---
 
-## 4. Un controllo di qualità che recupera l'idea delle "incongruenze" — ma tutto statistico
+## 4. Controllo qualità: varianza interna + coerenza incrociata con il Big Five
 
-La chat-intervista serviva anche a intercettare incongruenze tra
-autoreport e comportamento narrato (Documento 2-3, ora superati). Con
-due test scritti (Big Five + questo), possiamo recuperare **la stessa
-funzione senza alcun LLM**, confrontando semplicemente le correlazioni
-attese tra facet teoricamente collegate:
+*(Correzione: questa sezione aveva due problemi trovati durante
+l'implementazione del Blocco C. Primo, mancava del tutto un controllo
+di varianza interna proprio dell'EQ (quello che Big Five e Attaccamento
+hanno) — Autoconsapevolezza e Responsabilità relazionale non avevano
+NESSUN meccanismo di controllo qualità, né interno né incrociato.
+Secondo, la regola locale `flag_incoerenza_statistica >= 2` duplicava e
+contraddiceva la regola unificata del Big Five §7 — **ritirata**, resta
+solo il conteggio unificato su tutte le dimensioni dei 3 test.)*
+
+### 4a. Controllo di varianza interna (stessa logica di Big Five e Attaccamento)
+
+```
+Per ciascuno dei 4 pilastri (Autoconsapevolezza, Autoregolazione, Empatia, Responsabilità):
+    range_pilastro = max(punteggi ricodificati del pilastro) - min(punteggi ricodificati del pilastro)
+    SE range_pilastro >= 3.5 (su scala 1-5): flag_pilastro_anomalo = true
+    confidenza_dimensione[pilastro] = 0.6 se flag_pilastro_anomalo altrimenti 1.0
+```
+
+### 4b. Controllo di coerenza incrociata con il Big Five (resta, come meccanismo aggiuntivo — non più come regola decisionale a sé)
+
+Confrontando le correlazioni attese tra facet teoricamente collegate:
 
 | Facet Big Five | Pilastro EQ atteso correlato | Relazione attesa |
 |---|---|---|
@@ -113,19 +129,47 @@ attese tra facet teoricamente collegate:
 
 ```
 SE |Nevroticismo - (1 - Autoregolazione)| > 0.5:
-    flag_incoerenza_statistica += 1
-    confidenza_dimensione[Autoregolazione] = 0.6   // stesso meccanismo usato nel Big Five, Documento 7 §3
-
-SE |(1 - Gradevolezza) - (1 - Empatia)| > 0.5:
-    flag_incoerenza_statistica += 1
-    confidenza_dimensione[Empatia] = 0.6
-
-SE |Coscienziosità - Autoregolazione| > 0.5:
-    flag_incoerenza_statistica += 1
     confidenza_dimensione[Autoregolazione] = min(confidenza_dimensione[Autoregolazione], 0.6)
 
-SE flag_incoerenza_statistica >= 2: flag_profilo_per_revisione_dati = true
+SE |(1 - Gradevolezza) - (1 - Empatia)| > 0.5:
+    confidenza_dimensione[Empatia] = min(confidenza_dimensione[Empatia], 0.6)
+
+SE |Coscienziosità - Autoregolazione| > 0.5:
+    confidenza_dimensione[Autoregolazione] = min(confidenza_dimensione[Autoregolazione], 0.6)
 ```
+
+*(Nota: questo controllo riduce SOLO la confidenza dei pilastri EQ
+coinvolti, mai quella delle dimensioni Big Five citate — Nevroticismo,
+Gradevolezza e Coscienziosità hanno già il proprio controllo di
+varianza interna, indipendente, nel Documento 1 §7. Nessuna dimensione
+viene penalizzata due volte per lo stesso motivo.)*
+
+### 4c. Un'unica regola per la revisione umana (non più regole locali per test)
+
+**Ritirata la regola locale `flag_incoerenza_statistica >= 2`.** Il
+conteggio è unico e attraversa tutti e 3 i test, contando **dimensioni
+distinte a confidenza 0.6**, non controlli falliti — dettaglio
+importante: se sia il controllo Nevroticismo↔Autoregolazione sia
+Coscienziosità↔Autoregolazione fanno scattare Autoregolazione, questa
+conta **una volta sola** nel set delle dimensioni anomale, non due.
+
+```
+insieme_confidenze = {
+    confidenza_big5_estroversione, confidenza_big5_gradevolezza,
+    confidenza_big5_coscienziosita, confidenza_big5_nevroticismo,
+    confidenza_big5_apertura,
+    confidenza_dimensione[autoconsapevolezza], confidenza_dimensione[autoregolazione],
+    confidenza_dimensione[empatia], confidenza_dimensione[responsabilita],
+    confidenza_attaccamento_ansia, confidenza_attaccamento_evitamento
+}   // 11 valori totali, sommando i 3 test
+
+SE count(v == 0.6 per v in insieme_confidenze) >= 2:
+    flag_profilo_per_revisione_dati = true
+```
+
+Formula completa e autorevole in `Ainima_Algoritmo_Ranking_Finale_v1.md`,
+sezione "Soglia per revisione umana" — questo paragrafo la richiama,
+non la duplica.
 
 `confidenza_dimensione` per ciascun pilastro EQ segue esattamente la
 stessa logica di soglia e di utilizzo già formalizzata per il Big Five

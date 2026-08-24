@@ -1,11 +1,12 @@
 /**
- * 40 item del test Big Five, fedeli a
+ * 40 item del test Big Five (E1-E8, A1-A8, C1-C8, N1-N8, O1-O8) + 1 item
+ * trappola condiviso ('T1', a metà test) = 41 elementi totali, fedeli a
  * docs/Ainima_Test_Psicometrico_BigFive_v1.md (v2 — taglio da 50 a 40 item,
  * 8 per dimensione, + riscrittura anti-duplicazione di Nevroticismo
- * integrale/7 item di Gradevolezza/1 item di Coscienziosità — v. CLAUDE.md).
- * Stessi codici (E1-E8, A1-A8, C1-C8, N1-N8, O1-O8) attesi da
- * backend/schemas/psychometric.py (ITEM_CODES/REVERSE_ITEMS). Non alterare
- * i codici: il backend valida che tutti e 40 siano presenti.
+ * integrale/7 item di Gradevolezza/1 item di Coscienziosità) e
+ * docs/Ainima_00_Indice_Schema_Consolidato_v1.md (domande trappola —
+ * v. CLAUDE.md). Non alterare i codici: il backend valida che tutti i 41
+ * siano presenti (ITEM_CODES + 'T1' in schemas/psychometric.py).
  */
 
 export interface BigFiveItem {
@@ -38,6 +39,10 @@ export const BIG_FIVE_ITEMS: BigFiveItem[] = [
   { code: "C2", it: "Il disordine intorno a me non mi crea alcun fastidio.", en: "Clutter around me doesn't bother me at all." },
   { code: "C3", it: "Porto a termine ciò che inizio, anche quando perde di interesse.", en: "I finish what I start, even when it stops being interesting." },
   { code: "C4", it: "Se prendo un impegno con qualcuno, lo rispetto anche a costo di un sacrificio personale.", en: "If I make a commitment to someone, I keep it even at personal cost." },
+  // Domanda trappola (Ainima_00_Indice_Schema_Consolidato_v1.md) — indipendente
+  // da qualunque dimensione, non entra nello scoring Big Five (v. TRAPPOLA_
+  // RISPOSTA_ATTESA in backend/schemas/psychometric.py). Posizionata a metà test.
+  { code: "T1", it: "Per mostrare che stai leggendo con attenzione, seleziona 'Poco d'accordo' per questa domanda.", en: "To show you're reading carefully, select 'Slightly disagree' for this question." },
   { code: "C5", it: "Le persone possono contare su di me per rispettare gli orari e le scadenze.", en: "People can count on me to respect schedules and deadlines." },
   { code: "C6", it: "Preferisco mettere da parte risorse per il futuro piuttosto che spenderle subito.", en: "I prefer setting resources aside for the future rather than spending them right away." },
   { code: "C7", it: "Tendo a fare acquisti d'impulso, senza troppa pianificazione.", en: "I tend to make impulse purchases, without much planning." },

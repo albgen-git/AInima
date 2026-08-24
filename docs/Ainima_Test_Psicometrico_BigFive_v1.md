@@ -146,12 +146,18 @@ confidenza_dimensione = 0.6 se flag_dimensione_anomala altrimenti 1.0
 
 **Come si usa `confidenza_dimensione` (mai una nota narrativa libera):**
 
+*(Correzione: la formula produce solo due valori possibili, `0.6` o
+`1.0` — non un continuo. Le soglie sotto sono state riscritte per
+essere effettivamente raggiungibili; la versione precedente di questa
+tabella referenziava soglie tarate su una formula graduata poi
+semplificata, diventando in parte codice morto. Grazie al controllo di
+Claude Code in fase di implementazione per averlo intercettato.)*
+
 | Condizione | Azione |
 |---|---|
-| `confidenza_dimensione >= 0.8` | Procedi normalmente, nessuna azione |
-| `0.6 <= confidenza_dimensione < 0.8` | Procedi, ma il peso di quella dimensione nel matching viene ridotto (vedi Documento 7, Step 1) — nessuna interruzione per l'utente |
-| `confidenza_dimensione < 0.6` | Invito **opzionale e non bloccante** a rivedere solo quella sezione (non l'intero test), con un messaggio neutro: *"Alcune risposte in questa parte sembrano in contraddizione tra loro — se vuoi, puoi ricontrollarle."* Se l'utente ignora l'invito, si procede comunque con la confidenza ridotta. |
-| ≥ 2 dimensioni con confidenza `< 0.6` nello stesso test | `flag_profilo_per_revisione_dati = true` (revisione umana, mai bloccante per l'utente) |
+| `confidenza_dimensione == 1.0` | Procedi normalmente, nessuna azione |
+| `confidenza_dimensione == 0.6` (anomalia rilevata) | Il peso di quella dimensione nel matching viene ridotto automaticamente (vedi Documento 7, Step 1) **e** viene proposto un invito **opzionale e non bloccante** a rivedere solo quella sezione (non l'intero test): *"Alcune risposte in questa parte sembrano in contraddizione tra loro — se vuoi, puoi ricontrollarle."* Se l'utente ignora l'invito, si procede comunque con la confidenza ridotta. |
+| ≥ 2 dimensioni con `confidenza_dimensione == 0.6`, sommando Big Five + EQ Score + Attaccamento | `flag_profilo_per_revisione_dati = true` (revisione umana, mai bloccante per l'utente) |
 
 **Perché nessuna di queste tre situazioni forza mai un redo completo del
 test:** un'anomalia isolata non invalida il resto dei dati raccolti, e un

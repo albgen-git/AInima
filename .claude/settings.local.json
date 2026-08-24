@@ -29,7 +29,9 @@
       "Bash(curl -s -X POST \"http://localhost:8010/admin/matching/run-cycle?dry_run=false\")",
       "Bash(/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe -c ' *)",
       "Bash(\"/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe\" -c \"import anthropic; print\\(anthropic.__version__\\)\")",
-      "Bash(\"/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe\" -m pip install anthropic --quiet)"
+      "Bash(\"/c/Users/PC/AppData/Local/Programs/Python/Python310/python.exe\" -m pip install anthropic --quiet)",
+      "Bash(curl -s -X POST http://localhost:8010/users/8ddacaf6-9b90-46d5-badd-e6ee9c4484f7/bigfive -H 'Content-Type: application/json' -d @/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-Desktop-AInima-Project/996df2a7-58fd-483a-8761-1dad381f33ac/scratchpad/t2_bigfive_anomalo.json)",
+      "Bash(curl -s -X POST http://localhost:8010/users/8ddacaf6-9b90-46d5-badd-e6ee9c4484f7/bigfive -H 'Content-Type: application/json' -d @/c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-Desktop-AInima-Project/996df2a7-58fd-483a-8761-1dad381f33ac/scratchpad/t2_bigfive_pulito.json)"
     ]
   }
 }

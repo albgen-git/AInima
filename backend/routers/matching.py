@@ -11,39 +11,56 @@ from services import matching_engine
 
 router = APIRouter(tags=["matching"])
 
+# Test Profilo Relazionale (Blocco D — v. CLAUDE.md): gli 8 campi JSON che
+# punteggio_narrativo_strutturato() si aspetta nei dict a/b, stessi nomi di
+# colonna della SELECT sotto — nessuna traduzione di chiave necessaria.
+CAMPI_PROFILO_RELAZIONALE = [
+    "profilo_valori_self", "profilo_valori_partner_ideale",
+    "profilo_stile_vita_self", "profilo_stile_vita_partner_ideale",
+    "profilo_dinamica_relazionale_self", "profilo_dinamica_relazionale_partner_ideale",
+    "profilo_aspirazioni_self", "profilo_aspirazioni_partner_ideale",
+]
+
 
 @router.get("/users/{user_id}/affinity/{other_user_id}")
 def analisi_affinita_narrativa(user_id: UUID, other_user_id: UUID):
     """Coerenza narrativa PRE-abbinamento tra due utenti specifici, su
-    richiesta — calcolo vettoriale puro (cosine similarity tra self/ideal
-    embedding, v. matching_engine.coerenza_narrativa_score), non più un
-    Judge LLM (Prompt 4, rimosso — v. CLAUDE.md 2026-08-19, RNF-11: nessuna
-    IA generativa nel calcolo dei punteggi di compatibilità). Richiede che
-    entrambi abbiano compilato i due campi liberi RF-07b (self/ideal
-    embedding già calcolati)."""
+    richiesta — aritmetica diretta sul Test Profilo Relazionale (Blocco D,
+    v. CLAUDE.md — matching_engine.punteggio_narrativo_strutturato()), non
+    più similarità a embedding né un Judge LLM (RNF-11: nessuna IA
+    generativa nel calcolo dei punteggi). Richiede che entrambi abbiano
+    completato il test (26 item, self + partner ideale).
+
+    Endpoint admin/debug (mai chiamato dall'app utente — espone
+    esplicitamente l'ID dell'altra persona, cosa che romperebbe
+    l'anonimato RF-12 se mai finisse davanti a un utente finale): il flag
+    di asimmetria è esposto grezzo, non riformulato — v. invece
+    /proposal/analysis per la versione riformulata rivolta all'utente."""
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT user_id, self_embedding_vector, ideal_embedding_vector
+    cur.execute(f"""
+        SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
         FROM psychometric_scores WHERE user_id IN (%s, %s)
     """, (str(user_id), str(other_user_id)))
-    righe = {r["user_id"]: r for r in cur.fetchall()}
+    # psycopg2 non ha mai register_uuid() attivo in questo progetto — una
+    # colonna UUID diretta (non un'espressione calcolata) torna comunque
+    # come str, mai come uuid.UUID: normalizza qui, non solo nei punti dove
+    # una CASE WHEN la rende esplicitamente ambigua (bug preesistente
+    # trovato testando dal vivo il Blocco D — mai una regressione introdotta
+    # ora, l'endpoint dava sempre 404 anche prima).
+    righe = {str(r["user_id"]): r for r in cur.fetchall()}
     conn.close()
 
-    for uid in (user_id, other_user_id):
+    for uid in (str(user_id), str(other_user_id)):
         if uid not in righe:
             raise HTTPException(404, f"Utente {uid} non trovato")
-        if righe[uid]["self_embedding_vector"] is None or righe[uid]["ideal_embedding_vector"] is None:
+        if any(righe[uid][c] is None for c in CAMPI_PROFILO_RELAZIONALE):
             raise HTTPException(
-                409, f"Utente {uid} non ha ancora compilato i campi liberi RF-07b "
-                     "(servono self_embedding_vector e ideal_embedding_vector)")
+                409, f"Utente {uid} non ha ancora completato il Test Profilo Relazionale")
 
-    a, b = righe[user_id], righe[other_user_id]
-    punteggio = matching_engine.coerenza_narrativa_score(
-        {"self_emb": a["self_embedding_vector"], "ideal_emb": a["ideal_embedding_vector"]},
-        {"self_emb": b["self_embedding_vector"], "ideal_emb": b["ideal_embedding_vector"]},
-    )
-    return {"compatibilita_narrativa_complessiva": punteggio}
+    punteggio, flag_asimmetria_narrativa = matching_engine.punteggio_narrativo_strutturato(
+        dict(righe[str(user_id)]), dict(righe[str(other_user_id)]))
+    return {"punteggio_narrativo_strutturato": punteggio, "flag_asimmetria_narrativa": flag_asimmetria_narrativa}
 
 
 @router.get("/users/{user_id}/proposal", response_model=ProposalOut | None)
@@ -103,21 +120,44 @@ def proposta_corrente(user_id: UUID):
     )
 
 
+
+# Rivolto all'utente finale (proposal/page.tsx) — mai un booleano grezzo né
+# una frase diretta ("il partner ha detto di detestare X"), stesso
+# principio già seguito per il report EQ: un possibile spunto di confronto,
+# mai un'etichetta. Un'unica frase condivisa per entrambi i flag (asimmetria
+# narrativa + rifiuto esplicito nelle liste) — separarle rischierebbe di
+# sembrare un elenco di allarmi invece di un invito generico al dialogo.
+SPUNTO_ATTENZIONE_COSTRUTTIVO = (
+    "Su alcuni valori, stile di vita o abitudini potreste avere punti di vista "
+    "piuttosto diversi — potrebbe valere la pena parlarne apertamente appena vi conoscerete."
+)
+
+
 @router.get("/users/{user_id}/proposal/analysis")
 def analisi_proposta_corrente(user_id: UUID):
-    """Coerenza narrativa della proposta del ciclo corrente — calcolo
-    vettoriale puro (v. nota su /affinity sopra), pensata per la schermata
-    "Proposta di match".
+    """Coerenza narrativa della proposta del ciclo corrente — aritmetica
+    diretta sul Test Profilo Relazionale (v. nota su /affinity sopra),
+    pensata per la schermata "Proposta di match".
 
     A differenza di GET /users/{id}/affinity/{other_id}, questo endpoint
     NON richiede né espone mai l'ID dell'altra persona: lo risolve
     internamente dalla proposta attiva dell'utente (stessa query di
     GET /users/{id}/proposal) e restituisce solo il punteggio —
-    l'anonimato della proposta (RF-12) resta intatto anche qui."""
+    l'anonimato della proposta (RF-12) resta intatto anche qui.
+
+    flag_rifiuto_esplicito/flag_asimmetria_narrativa (Blocco D — v.
+    CLAUDE.md) NON vengono ricalcolati qui: sono già persistiti su questo
+    stesso match al momento della sua creazione (matching_engine.
+    run_monthly_batch), quindi vengono letti da lì — riflettono i dati usati
+    per QUESTA proposta, non un ricalcolo live che potrebbe divergere se nel
+    frattempo uno dei due ha modificato il proprio profilo. Se uno dei due è
+    true, l'utente vede un unico spunto costruttivo generico (mai quale dei
+    due flag, mai un dettaglio specifico)."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT CASE WHEN m.user_a_id = %s THEN m.user_b_id ELSE m.user_a_id END AS altro_id
+        SELECT CASE WHEN m.user_a_id = %s THEN m.user_b_id ELSE m.user_a_id END AS altro_id,
+               m.flag_rifiuto_esplicito, m.flag_asimmetria_narrativa
         FROM matches m
         WHERE (m.user_a_id = %s OR m.user_b_id = %s) AND m.stato IN ('Proposto', 'Accettato_A', 'Accettato_B')
         ORDER BY m.data_proposta DESC LIMIT 1
@@ -128,8 +168,8 @@ def analisi_proposta_corrente(user_id: UUID):
         raise HTTPException(404, "Nessuna proposta attiva per questo utente")
 
     altro_id = str(m["altro_id"])
-    cur.execute("""
-        SELECT user_id, self_embedding_vector, ideal_embedding_vector
+    cur.execute(f"""
+        SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
         FROM psychometric_scores WHERE user_id IN (%s, %s)
     """, (str(user_id), altro_id))
     # CASE WHEN ... restituisce il tipo come stringa (non UUID) da psycopg2 —
@@ -139,15 +179,17 @@ def analisi_proposta_corrente(user_id: UUID):
     conn.close()
 
     for uid in (str(user_id), altro_id):
-        if uid not in righe or righe[uid]["self_embedding_vector"] is None or righe[uid]["ideal_embedding_vector"] is None:
+        if uid not in righe or any(righe[uid][c] is None for c in CAMPI_PROFILO_RELAZIONALE):
             return {"pronta": False, "analisi": None}
 
-    io, altro = righe[str(user_id)], righe[altro_id]
-    punteggio = matching_engine.coerenza_narrativa_score(
-        {"self_emb": io["self_embedding_vector"], "ideal_emb": io["ideal_embedding_vector"]},
-        {"self_emb": altro["self_embedding_vector"], "ideal_emb": altro["ideal_embedding_vector"]},
-    )
-    return {"pronta": True, "analisi": {"compatibilita_narrativa_complessiva": punteggio}}
+    punteggio, _ = matching_engine.punteggio_narrativo_strutturato(
+        dict(righe[str(user_id)]), dict(righe[altro_id]))
+
+    spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (m["flag_rifiuto_esplicito"] or m["flag_asimmetria_narrativa"]) else None
+    return {"pronta": True, "analisi": {
+        "punteggio_narrativo_strutturato": punteggio,
+        "spunto_di_attenzione": spunto,
+    }}
 
 
 @router.post("/users/{user_id}/matches/{match_id}/decision")

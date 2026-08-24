@@ -83,6 +83,12 @@ export interface WizardState {
   // Step: test EQ Score (32 item, sostituisce la chat EQ — v. CLAUDE.md)
   eqCompletato: boolean;
 
+  // Step: Test Profilo Relazionale (26 item, Blocco D — v. CLAUDE.md,
+  // Ainima_Test_Profilo_Relazionale_v1.md) — sostituisce il confronto a
+  // embedding nel calcolo di matching, entra nel gate di attivazione RF-09
+  // al pari di Big Five/Attaccamento/EQ.
+  profiloRelazionaleCompletato: boolean;
+
   // Step: campi liberi RF-07b (sostituiscono la chat EQ — v. CLAUDE.md)
   descrizione_di_se: string;
   descrizione_partner_ideale: string;
@@ -149,6 +155,7 @@ export const initialWizardState: WizardState = {
   bigFiveCompletato: false,
   attaccamentoCompletato: false,
   eqCompletato: false,
+  profiloRelazionaleCompletato: false,
   descrizione_di_se: "",
   descrizione_partner_ideale: "",
   mi_piace: "",

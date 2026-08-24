@@ -1,11 +1,20 @@
 """
 simulate_matching_narrativo.py
 Ciclo di abbinamento (stable matching) ristretto ai soli profili che hanno
-già l'embedding narrativo reale (self_embedding_vector/ideal_embedding_vector
-popolati da run_narrative_pipeline.py) — per vedere concretamente quanto la
+completato il Test Profilo Relazionale (Blocco D — v. CLAUDE.md,
+Ainima_Test_Profilo_Relazionale_v1.md) — per vedere concretamente quanto la
 Coerenza Narrativa (STEP 3) pesa nel FINAL_SCORE rispetto agli altri 3
 componenti, ora che non è più un placeholder neutro 0.5 per questo
 sottoinsieme.
+
+Aggiornamento 2026-08-21 (Blocco D): il vecchio criterio
+(self_embedding_vector IS NOT NULL, popolato da run_narrative_pipeline.py)
+è superato — quella pipeline è anche in pausa (v. CLAUDE.md,
+GENERAZIONE_PROFILO_CANONICO_ATTIVA) e comunque non è più quello che
+STEP 3 consuma. coerenza_narrativa_score() (embedding) è stata rimossa,
+sostituita da punteggio_narrativo_strutturato() (13 sotto-dimensioni
+chiuse, self vs partner ideale) — corretti sia il criterio di selezione
+del pool sia gli argomenti passati alla funzione.
 
 Non scrive nulla su matches — è solo un'anteprima diagnostica.
 
@@ -28,10 +37,10 @@ def main():
     pool_completo = me.load_pool(cur)
     cfg = me.load_config_floats(cur)
 
-    cur.execute("SELECT user_id FROM psychometric_scores WHERE self_embedding_vector IS NOT NULL")
+    cur.execute("SELECT user_id FROM psychometric_scores WHERE profilo_valori_self IS NOT NULL")
     id_pronti = {r["user_id"] for r in cur.fetchall()}
     pool = {uid: dati for uid, dati in pool_completo.items() if uid in id_pronti}
-    print(f"Pool ristretto: {len(pool)} profili con embedding narrativo reale (su {len(pool_completo)} Attivi totali)")
+    print(f"Pool ristretto: {len(pool)} profili con Test Profilo Relazionale completato (su {len(pool_completo)} Attivi totali)")
 
     history_pairs = set()  # non rilevante per questa anteprima diagnostica
     gia_impegnati = set()
@@ -61,10 +70,14 @@ def main():
         a, b = pool[uid], pool[cand_id]
         bf = me.bigfive_score(a, b)
         eq = me.eq_score(a, b)
-        narrativa = me.coerenza_narrativa_score(a, b)
+        narrativa, _ = me.punteggio_narrativo_strutturato(a, b)
         dist = me.haversine_km(a["lon"], a["lat"], b["lon"], b["lat"])
         _, punteggio_distanza = me.valuta_distanza(a, b, dist, cfg)
-        soft = me.combina_soft_e_distanza(a, b, punteggio_distanza)
+        # combina_soft_e_distanza ritorna una tupla (punteggio, flag_rifiuto_esplicito)
+        # dal Blocco 5 (Liste_Piace_Detesta) — questo script non era mai
+        # stato aggiornato per quel cambio, bug slegato dal Blocco D ma
+        # trovato verificando dal vivo (v. CLAUDE.md).
+        soft, _ = me.combina_soft_e_distanza(a, b, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
 

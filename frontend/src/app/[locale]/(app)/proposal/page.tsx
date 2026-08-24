@@ -159,10 +159,13 @@ export default function ProposalPage() {
             <div className="h-2 w-full rounded-full bg-border">
               <div
                 className="h-2 rounded-full bg-gold transition-all"
-                style={{ width: `${Math.round(analysis.analisi.compatibilita_narrativa_complessiva * 100)}%` }}
+                style={{ width: `${Math.round(analysis.analisi.punteggio_narrativo_strutturato * 100)}%` }}
               />
             </div>
             <p className="mt-2 text-sm text-slate">{t("narrativeScoreHint")}</p>
+            {analysis.analisi.spunto_di_attenzione && (
+              <p className="mt-3 text-sm text-slate">{analysis.analisi.spunto_di_attenzione}</p>
+            )}
           </div>
         )}
       </Card>

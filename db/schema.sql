@@ -177,6 +177,18 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     score_big5_coscienziosita        REAL,
     score_big5_nevroticismo          REAL,
     score_big5_apertura              REAL,
+    -- confidenza_dimensione (Ainima_Test_Psicometrico_BigFive_v1.md §7 Step 4):
+    -- 0.6 se range interno della dimensione (max-min dei punteggi ricodificati
+    -- degli 8 item) >= 3.5, altrimenti 1.0 — mai un giudizio sulla persona,
+    -- solo un moltiplicatore che riduce il peso di quella dimensione in
+    -- matching_engine.bigfive_score() (Algoritmo_Ranking_Finale §3 "Rettifica
+    -- di confidenza"). Default 1.0: dato mancante = nessuna anomalia rilevata,
+    -- non un giudizio negativo (v. CLAUDE.md).
+    confidenza_big5_estroversione    REAL NOT NULL DEFAULT 1.0,
+    confidenza_big5_gradevolezza     REAL NOT NULL DEFAULT 1.0,
+    confidenza_big5_coscienziosita   REAL NOT NULL DEFAULT 1.0,
+    confidenza_big5_nevroticismo     REAL NOT NULL DEFAULT 1.0,
+    confidenza_big5_apertura         REAL NOT NULL DEFAULT 1.0,
     -- Ainima_Test_Attaccamento_v1.md: 2 dimensioni continue (dato primario),
     -- ECR-R-like, sostituiscono la distribuzione a 4 stili dedotta da LLM.
     ansia_score                      REAL,
@@ -185,6 +197,13 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     -- Ainima_Test_Attaccamento_v1.md §5 Step 4 — mai usato nel calcolo di
     -- matching, che lavora sempre sulle due dimensioni continue sopra.
     stile_attaccamento               VARCHAR(30),
+    -- confidenza_dimensione per Attaccamento (Ainima_Test_Attaccamento_v1.md
+    -- §5 Step 3bis, Blocco C seconda passata — v. CLAUDE.md): stessa identica
+    -- logica del Big Five (varianza interna, item invertiti AN2/AN5/AN8 e
+    -- EV2/EV5/EV8), nessun controllo incrociato con altri test. Entra
+    -- nell'insieme deduplicato per flag_profilo_per_revisione_dati.
+    confidenza_attaccamento_ansia       REAL NOT NULL DEFAULT 1.0,
+    confidenza_attaccamento_evitamento  REAL NOT NULL DEFAULT 1.0,
     -- Ainima_Test_EQScore_v1.md: 4 pilastri da questionario scritto (32 item),
     -- non più dal rubric-scorer LLM.
     eq_pilastro_autoconsapevolezza   REAL,
@@ -192,6 +211,33 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     eq_pilastro_empatia              REAL,
     eq_pilastro_responsabilita       REAL,
     score_maturita_emotiva           REAL,
+    -- confidenza_dimensione per i pilastri EQ (Ainima_Test_EQScore_v1.md §4):
+    -- a differenza del Big Five, qui NON deriva da varianza interna al test
+    -- ma dal confronto statistico incrociato con facet Big Five correlate
+    -- (Nevroticismo/Autoregolazione, Gradevolezza/Empatia, Coscienziosità/
+    -- Autoregolazione) — solo Autoregolazione ed Empatia hanno un controllo
+    -- definito nel documento, Autoconsapevolezza/Responsabilità restano
+    -- sempre a 1.0. Riduce il peso del pilastro in score_maturita_emotiva
+    -- (ricalcolato in routers/psychometric.py), mai un quinto voto separato.
+    confidenza_eq_autoconsapevolezza REAL NOT NULL DEFAULT 1.0,
+    confidenza_eq_autoregolazione    REAL NOT NULL DEFAULT 1.0,
+    confidenza_eq_empatia            REAL NOT NULL DEFAULT 1.0,
+    confidenza_eq_responsabilita     REAL NOT NULL DEFAULT 1.0,
+    -- Blocco C seconda passata (v. CLAUDE.md, Ainima_Test_EQScore_v1.md §4a):
+    -- Autoregolazione/Empatia hanno SIA un controllo di varianza interna
+    -- (come tutte le altre dimensioni) SIA il controllo incrociato col Big
+    -- Five (§4b) — le colonne sopra (confidenza_eq_autoregolazione/empatia)
+    -- sono il valore PUBBLICO finale (min tra i due), ricalcolato da zero ad
+    -- ogni chiamata di _ricalcola_confidenza_e_flag(). Queste due colonne
+    -- "_interna" sono la baseline pulita di sola varianza interna, scritta
+    -- SOLO da calcola_eq() al momento della submission EQ — mai toccata dal
+    -- controllo incrociato — così il controllo incrociato può sempre essere
+    -- ricalcolato da un punto di partenza pulito invece di applicare min()
+    -- ricorsivamente sopra un valore già ridotto in un giro precedente
+    -- (altrimenti la confidenza pubblica potrebbe restare bloccata a 0.6
+    -- anche dopo che l'incoerenza con il Big Five non sussiste più).
+    confidenza_eq_autoregolazione_interna REAL NOT NULL DEFAULT 1.0,
+    confidenza_eq_empatia_interna         REAL NOT NULL DEFAULT 1.0,
     -- true se: (a) incoerenza statistica Big Five/EQ (Ainima_Test_EQScore_v1.md
     -- §4, confronto puramente numerico tra due test già raccolti, zero LLM)
     -- oppure (b) quadrante Timoroso/Disorganizzato dell'attaccamento
@@ -209,9 +255,30 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     flag_trappola_fallita            SMALLINT NOT NULL DEFAULT 0,
     self_profile_canonico            TEXT,
     ideal_partner_profile_canonico   TEXT,
+    -- ⚠️ Non più usati nel calcolo di matching dal Blocco D (v. CLAUDE.md,
+    -- Ainima_Test_Profilo_Relazionale_v1.md) — sostituiti da
+    -- profilo_*_self/_partner_ideale sotto. Colonne NON rimosse: restano
+    -- calcolate per eventuali usi futuri (es. ricerca testuale in UI),
+    -- semplicemente escluse da matching_engine.load_pool().
     self_embedding_vector            DOUBLE PRECISION[],  -- v. nota pgvector in cima al file
     ideal_embedding_vector           DOUBLE PRECISION[],
-    report_prontezza_relazionale     TEXT
+    report_prontezza_relazionale     TEXT,
+    -- Test Profilo Relazionale (Blocco D — Ainima_Test_Profilo_Relazionale_v1.md):
+    -- 13 sotto-dimensioni in 4 categorie, ciascuna con 2 item (Sé + Partner
+    -- ideale), 26 item totali, nessun reverse. Sostituisce il confronto a
+    -- embedding nel calcolo di matching (RNF-11: zero IA generativa nei
+    -- punteggi) — vera aritmetica diretta tra due profili, non più
+    -- similarità testuale. Entra nel gate di attivazione RF-09 (decisione
+    -- esplicita dell'utente: pesa 0.20 in FINAL_SCORE, non è un campo
+    -- opzionale come i due campi liberi RF-07b).
+    profilo_valori_self                    JSONB,
+    profilo_valori_partner_ideale           JSONB,
+    profilo_stile_vita_self                 JSONB,
+    profilo_stile_vita_partner_ideale        JSONB,
+    profilo_dinamica_relazionale_self        JSONB,
+    profilo_dinamica_relazionale_partner_ideale JSONB,
+    profilo_aspirazioni_self                 JSONB,
+    profilo_aspirazioni_partner_ideale        JSONB
 );
 
 -- ------------------------------------------------------------
@@ -304,7 +371,10 @@ INSERT INTO matching_algorithm_versions (versione, descrizione) VALUES
     ('stable_v2', 'Come stable_v1, con la distanza non più un tetto fisso in km ma un fattore condizionale su importanza_vicinanza_geografica + lingue_parlate oltre la soglia urbana (Ainima_Algoritmo_Ranking_Finale_v1.md §3bis).'),
     ('stable_v3', 'Allineamento ai documenti aggiornati dopo la sessione con lo psicologo (v. CLAUDE.md): (a) attaccamento da formula continua ansia/evitamento (Ainima_Test_Attaccamento_v1.md) invece della matrice 4x4 su etichette dedotte da LLM; (b) Coerenza Narrativa da similarità vettoriale pura tra self/ideal embedding (Ainima_Matching_Semantico_Report_v1.md §5), Judge LLM Prompt 4 eliminato — nessuna IA generativa nel calcolo dei punteggi (RNF-11); (c) filtro hard su flag_profilo_per_revisione_dati (incoerenze statistiche Big Five/EQ o quadrante Timoroso/Disorganizzato) al posto di red_flags_rilevati; (d) selezione per somiglianza visiva (RF-11a/RF-11b) sempre applicata sulla shortlist di dimensione_shortlist_analisi_visiva candidati per compatibilità, non più solo come tie-break tra quasi pari.'),
     ('stable_v4', 'Aggiunta Punteggio_Tag_Liste (Ainima_Liste_Piace_Detesta_v1.md) dentro lo STEP 4 — Preferenze Soft: confronto a similarità vettoriale per singolo tag (non per profilo intero) tra le liste mi_piace/non_sopporto/partner_vorrei/partner_non_vorrei di due candidati, con penalità dedicata sui rifiuti espliciti (flag_rifiuto_esplicito se > 0.7). Cache di embedding condivisa tra tutti gli utenti per tag (tag_embedding_cache), non ricalcolata ad ogni confronto.'),
-    ('stable_v5', 'Ricalibrata la soglia minima del tie-break visivo RF-11a/RF-11b: da valore assoluto fisso (0.20, scelto a occhio) a valore ricalcolato sul percentile target (default 90°) della distribuzione reale di similarità ArcFace tra coppie casuali del pool corrente (system_config.soglia_similarita_visiva_minima/soglia_percentile_similarita_visiva). Trovato durante un test di matching reale che 0.20 era sotto il 66° percentile delle coppie casuali — il tie-break scattava spesso su rumore statistico, non su somiglianza reale.')
+    ('stable_v5', 'Ricalibrata la soglia minima del tie-break visivo RF-11a/RF-11b: da valore assoluto fisso (0.20, scelto a occhio) a valore ricalcolato sul percentile target (default 90°) della distribuzione reale di similarità ArcFace tra coppie casuali del pool corrente (system_config.soglia_similarita_visiva_minima/soglia_percentile_similarita_visiva). Trovato durante un test di matching reale che 0.20 era sotto il 66° percentile delle coppie casuali — il tie-break scattava spesso su rumore statistico, non su somiglianza reale.'),
+    ('stable_v6', 'Blocco C (v. CLAUDE.md): introdotta confidenza_dimensione (Ainima_Test_Psicometrico_BigFive_v1.md §7 Step 4, Ainima_Test_EQScore_v1.md §4) — un profilo con varianza interna anomala su una dimensione Big Five (range >= 3.5 su 8 item), o con un''incoerenza statistica tra una facet Big Five e un pilastro EQ correlato, pesa meno quella specifica dimensione/pilastro nel calcolo finale (moltiplicatore 0.6, mai un quinto peso separato, mai un giudizio esposto all''utente). matching_engine.bigfive_score() ora usa una media pesata sulla confidenza minima tra i due profili per dimensione; score_maturita_emotiva è ricalcolato con pesi EQ corretti dalla confidenza alla fonte (routers/psychometric.py), eq_score() invariato.'),
+    ('stable_v7', 'Blocco C, seconda passata (v. CLAUDE.md — correzioni di specifica trovate durante l''implementazione, non solo di codice): (a) aggiunta confidenza_dimensione per Attaccamento, mancante del tutto (Ainima_Test_Attaccamento_v1.md §5 Step 3bis); (b) aggiunto il controllo di varianza interna per tutti e 4 i pilastri EQ (Ainima_Test_EQScore_v1.md §4a) — prima Autoconsapevolezza/Responsabilità non avevano alcun controllo qualità; per Autoregolazione/Empatia il valore pubblico finale è min(interno, incrociato col Big Five), mai una sostituzione diretta; (c) _ricalcola_confidenza_e_flag() riscritta per costruire esplicitamente l''insieme deduplicato di 11 confidenze (5 Big Five + 4 EQ + 2 Attaccamento) e contare quante sono == 0.6, invece di un contatore incrementato una volta per ogni controllo incrociato fallito (bug: due controlli diversi sulla stessa dimensione Autoregolazione gonfiavano il conteggio come se fossero 2 dimensioni anomale invece di 1) — formula autorevole in Ainima_Algoritmo_Ranking_Finale_v1.md, "Soglia per revisione umana". Cambia chi viene escluso dal matching (flag_profilo_per_revisione_dati è un filtro hard in matching_engine.py), non solo bookkeeping.'),
+    ('stable_v8', 'Blocco D (v. CLAUDE.md, Ainima_Test_Profilo_Relazionale_v1.md): STEP 3 (Coerenza Narrativa) non usa più il confronto a embedding tra i campi liberi (self_embedding_vector/ideal_embedding_vector, Judge LLM già rimosso in stable_v3) — sostituito da matching_engine.punteggio_narrativo_strutturato(), aritmetica diretta su 13 sotto-dimensioni chiuse (Valori/Stile di Vita/Dinamica Relazionale/Aspirazioni, self vs partner ideale, 26 item). Aggiunto flag_asimmetria_narrativa (scarto >0.5 tra le due direzioni su una sotto-dimensione) con lo stesso trattamento di flag_rifiuto_esplicito, entrambi ora persistiti su matches al momento della creazione (colonne dedicate, mai ricalcolati a posteriori) ed esposti in GET /admin/matches/{id}/why (dato grezzo, uso interno) — GET /users/{id}/proposal/analysis (rivolto all''utente) li riformula invece in un unico spunto costruttivo, mai un''etichetta cruda. Il Test Profilo Relazionale entra nel gate di attivazione RF-09 (decisione esplicita dell''utente: pesa 0.20 in FINAL_SCORE, categoria "componente obbligatoria" non "opzionale").')
 ON CONFLICT (versione) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS matches (
@@ -326,6 +396,16 @@ CREATE TABLE IF NOT EXISTS matches (
     -- (stable_v3 — v. CLAUDE.md; prima del 2026-08-19 indicava un tie-break
     -- tra candidati quasi pari, non più il comportamento attuale)
     selezionato_per_somiglianza_visiva BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Blocco D (v. CLAUDE.md): 2 flag per-coppia, persistiti QUI al momento
+    -- della creazione del match (stesso trattamento di
+    -- selezionato_per_somiglianza_visiva sopra) — non ricalcolati a
+    -- posteriori, per poter ricostruire "perché questo match" anche a
+    -- distanza di tempo tramite GET /admin/matches/{id}/why, anche se il
+    -- profilo di uno dei due cambia nel frattempo. Mai esposti come
+    -- booleano grezzo a un utente finale (v. /users/{id}/proposal/analysis,
+    -- che li riformula in un unico spunto costruttivo, mai un'etichetta).
+    flag_rifiuto_esplicito             BOOLEAN NOT NULL DEFAULT FALSE,
+    flag_asimmetria_narrativa          BOOLEAN NOT NULL DEFAULT FALSE,
     -- versioning: v. tabella matching_algorithm_versions sopra
     algoritmo_versione                 VARCHAR(50) REFERENCES matching_algorithm_versions(versione),
     algoritmo_parametri                 JSONB, -- snapshot dei pesi/soglie da system_config usati per QUESTO abbinamento
@@ -383,6 +463,79 @@ CREATE TABLE IF NOT EXISTS email_change_requests (
 );
 
 -- ------------------------------------------------------------
+-- Blocco E (v. CLAUDE.md — Ainima_Dashboard_Trigger_Email_v1.md,
+-- Ainima_Engagement_Periodico_v1_BOZZA.md §2-3): dashboard "mai vuota" +
+-- coda/raggruppamento email anti-invadenza. Il secondo documento è
+-- esplicitamente segnato "bozza concettuale, non pronto per
+-- l'implementazione diretta" — implementato comunque nello scope ridotto
+-- concordato con l'utente (domande_affinamento_pool con item reali
+-- rimossi dal taglio dei test, 2-3 pillole illustrative reali, calendario
+-- editoriale completo rimandato).
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS domande_affinamento_pool (
+    item_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- codice nel test di origine PRIMA del taglio (es. 'O4', 'AN4', 'RE8')
+    -- — solo per tracciabilità, questi item non sono più validati da
+    -- ITEM_CODES_* nei rispettivi schemas (rimossi da quei test).
+    codice_originale     VARCHAR(10) NOT NULL,
+    test_origine          VARCHAR(20) NOT NULL, -- 'bigfive' | 'attaccamento' | 'eq'
+    dimensione             VARCHAR(30) NOT NULL, -- dimensione/pilastro di origine, per il tag richiesto dal documento
+    reverse                  BOOLEAN NOT NULL,
+    testo_it                  TEXT NOT NULL,
+    testo_en                   TEXT NOT NULL,
+    attivo                       BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS domande_affinamento_log (
+    user_id           UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    item_id            UUID NOT NULL REFERENCES domande_affinamento_pool(item_id),
+    data_posta          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    risposta              SMALLINT, -- 1-5, NULL finché non risposto
+    data_risposta          TIMESTAMPTZ,
+    PRIMARY KEY (user_id, item_id) -- mai riproposto due volte allo stesso utente (§2.3 del documento)
+);
+
+CREATE TABLE IF NOT EXISTS pillole_libreria (
+    pillola_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    titolo               VARCHAR(150) NOT NULL,
+    testo                 TEXT NOT NULL,
+    -- 'Intelligenza Emotiva' | 'Comunicazione & Conflitto' | 'Cultura e Valori' | 'Preparazione al Matrimonio'
+    pilastro_editoriale    VARCHAR(40) NOT NULL,
+    -- 'Attesa generale' | 'Post-match confermato' | 'Post-rifiuto'
+    contesto_trigger         VARCHAR(30) NOT NULL DEFAULT 'Attesa generale',
+    -- tag di personalizzazione (§3.2 del documento) — es. 'ansia_alta',
+    -- 'evitamento_alto', 'empatia_bassa'; array vuoto = contenuto generico
+    -- del pilastro in rotazione, nessun dato specifico richiesto
+    tag_personalizzazione     VARCHAR(30)[] NOT NULL DEFAULT '{}',
+    attiva                       BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS pillole_inviate_log (
+    user_id       UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    pillola_id     UUID NOT NULL REFERENCES pillole_libreria(pillola_id),
+    data_invio       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    aperta             BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (user_id, pillola_id) -- evita ripetizioni (§3.3 del documento)
+);
+
+CREATE TABLE IF NOT EXISTS email_coda_prossimo_invio (
+    coda_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    tipo_contenuto     VARCHAR(20) NOT NULL, -- 'domande' | 'pillola'
+    contenuto_id         UUID NOT NULL, -- item_id o pillola_id, a seconda del tipo (nessuna FK cross-tabella in Postgres)
+    aggiunto_il            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS email_inviata_log (
+    invio_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    data_invio            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    contenuti_inclusi       JSONB NOT NULL, -- snapshot di cosa è stato incluso in QUESTA email (stesso principio di algoritmo_parametri su matches)
+    aperta                    BOOLEAN NOT NULL DEFAULT FALSE,
+    cliccata                   BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- ------------------------------------------------------------
 -- §7.8 Parametri di configurazione (admin console)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS system_config (
@@ -434,5 +587,7 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     ('otp_tentativi_massimi',           '5',   'Tentativi di verifica falliti consentiti prima di dover richiedere un nuovo codice OTP'),
     ('otp_richiesta_cooldown_secondi',  '60',  'Secondi minimi tra due richieste di OTP per la stessa email, anti-abuso'),
     ('otp_rate_limit_ip_per_ora',       '10',  'Numero massimo di richieste OTP consentite dallo stesso IP in un''ora, anti-abuso'),
-    ('jwt_scadenza_giorni',             '30',  'Giorni di validità del token di sessione emesso alla verifica OTP (v. CLAUDE.md: emesso ma non ancora applicato su altre rotte)')
+    ('jwt_scadenza_giorni',             '30',  'Giorni di validità del token di sessione emesso alla verifica OTP (v. CLAUDE.md: emesso ma non ancora applicato su altre rotte)'),
+    ('cadenza_email_engagement_giorni', '7',   'Blocco E — tetto minimo di giorni tra due email di engagement (domande di affinamento/pillole) per lo stesso utente, anti-invadenza (Ainima_Dashboard_Trigger_Email_v1.md §2.3)'),
+    ('giorno_invio_email_engagement',   'Martedì', 'Blocco E — giorno fisso della settimana in cui si svuota la coda email di engagement, per prevedibilità lato utente (Ainima_Dashboard_Trigger_Email_v1.md §2.2)')
 ON CONFLICT (chiave) DO NOTHING;

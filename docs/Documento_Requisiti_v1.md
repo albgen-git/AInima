@@ -130,16 +130,19 @@ Dall'analisi preliminare condotta emerge che il mercato del matching relazionale
 
 ---
 
-## 6. Ambiente di test e produzione
+## 6. Ambienti: test, collaudo e produzione
 
-| | **Test (DB Actor)** | **Produzione** |
-|---|---|---|
-| Scopo | Sandbox per validare la logica di matching su anagrafiche fittizie (con foto profilo, foto partner ideale, foto "somiglianza") | Dati reali degli utenti |
-| Motore DB | MySQL o PostgreSQL (locale) | Da definire in fase di infrastruttura — **si raccomanda PostgreSQL** (v. §8) |
-| Storage immagini | Locale/filesystem | Object Storage cloud (S3-compatibile) |
-| Stato attuale | Repository Git personale, ambiente locale | Da progettare |
+| | **Test (DB Actor)** | **Collaudo** | **Produzione** |
+|---|---|---|---|
+| Scopo | Sandbox locale per validare la logica di matching su anagrafiche fittizie (con foto profilo, foto partner ideale, foto "somiglianza") | Ambiente cloud pubblico con dati demo, usato per mostrare l'MVP e per collaudo funzionale prima del lancio reale | Dati reali degli utenti, dopo il lancio |
+| Motore DB | MySQL o PostgreSQL (locale) | PostgreSQL gestito su Render (piano Free, con scadenza — v. nota sotto) | Da definire in fase di infrastruttura — **si raccomanda PostgreSQL** (v. §8), piano a pagamento con backup |
+| Storage immagini | Locale/filesystem | Object Storage cloud S3-compatibile (Cloudflare R2) | Object Storage cloud (S3-compatibile), stesso servizio o equivalente scalato |
+| Hosting backend/frontend | — (solo DB, nessuna app in esecuzione) | Render (backend) + Vercel (frontend) | Da definire, eventualmente stesso stack scalato o migrato |
+| Stato attuale | Repository Git personale, ambiente locale | **In allestimento** — database Render creato (piano Free, scadenza 20 settembre 2026, da rinnovare/aggiornare se il collaudo prosegue oltre) | Da progettare |
 
-Il DB Actor va considerato come **banco di prova per l'algoritmo di matching**, non come base dati definitiva: lo schema dovrà essere adattato al modello dati definito in §7 prima della migrazione verso l'ambiente di produzione. Le foto "partner ideale" e "somiglianza" già presenti nel DB Actor confermano che il set di test è già predisposto per validare il flusso descritto in RF-11b.
+Il DB Actor va considerato come **banco di prova per l'algoritmo di matching**, non come base dati definitiva: lo schema dovrà essere adattato al modello dati definito in §7 prima della migrazione verso l'ambiente di collaudo. Le foto "partner ideale" e "somiglianza" già presenti nel DB Actor confermano che il set di test è già predisposto per validare il flusso descritto in RF-11b.
+
+L'ambiente di **collaudo** su Render/Vercel/R2 (piani gratuiti) serve a mostrare l'MVP e validare il funzionamento end-to-end con dati fittizi, ma **non va usato con dati reali di utenti**: non ha le garanzie di backup, durata e sicurezza necessarie per la produzione (v. §9, punti fuori scope). Il passaggio a un vero ambiente di produzione — con piani a pagamento, backup, e revisione di sicurezza — resta un passo separato, da affrontare quando il prodotto sarà pronto per il lancio reale.
 
 ---
 

@@ -10,6 +10,7 @@ export { matchingApi } from "./matching";
 export { paymentsApi } from "./payments";
 export { contactsApi } from "./contacts";
 export { feedbackApi } from "./feedback";
+export { engagementApi } from "./engagement";
 
 /** URL assoluto per una foto servita da /photos/... (v. backend/main.py StaticFiles mount). */
 export function photoUrl(relativePath: string): string {

@@ -17,6 +17,7 @@ from schemas.users import (
     PaymentMethodRequest, RequestOtpRequest, VerifyOtpRequest, VerifyOtpResponse,
 )
 from security import create_session_token, hash_otp, verify_otp_hash
+from services import engagement
 from services.email_provider import get_email_provider
 
 # Ordine degli step del wizard onboarding lato frontend (v.
@@ -32,10 +33,16 @@ from services.email_provider import get_email_provider
 # step scritti — STEP_ATTACCAMENTO, STEP_EQ (test a punteggio deterministico)
 # e STEP_NARRATIVE (i due campi liberi RF-07b) — 13 step diventano 15.
 # 2026-08-20: + STEP_INTEREST_TAGS (RF-08c, liste "mi piace/non sopporto") — 16 step.
+# 2026-08-21 (Blocco D — v. CLAUDE.md): + STEP_PROFILO_RELAZIONALE, subito
+# dopo STEP_EQ (raggruppato con gli altri test Likert deterministici) e
+# prima di STEP_NARRATIVE — a differenza dei 2 campi liberi RF-07b, questo
+# test entra per davvero nel FINAL_SCORE (w3=0.20), quindi fa parte anche
+# della checklist di attivazione RF-09, non solo della catena di ripresa
+# del wizard — 17 step.
 STEP_EMAIL, STEP_OTP_VERIFY, STEP_BASIC_INFO, STEP_SENSITIVE_CONSENT, STEP_ORIENTATION, \
     STEP_PAYMENT, STEP_CIVIL_STATUS, STEP_PROFILE, STEP_PHOTOS, STEP_PREFERENCES, \
-    STEP_BIGFIVE, STEP_ATTACCAMENTO, STEP_EQ, STEP_NARRATIVE, STEP_INTEREST_TAGS, \
-    STEP_SUMMARY = range(16)
+    STEP_BIGFIVE, STEP_ATTACCAMENTO, STEP_EQ, STEP_PROFILO_RELAZIONALE, STEP_NARRATIVE, \
+    STEP_INTEREST_TAGS, STEP_SUMMARY = range(17)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -175,17 +182,18 @@ def registra_metodo_pagamento(user_id: UUID, payload: PaymentMethodRequest):
 def stato_onboarding(user_id: UUID):
     """RF-09: l'account passa 'In attesa' -> 'Attivo' solo quando email
     verificata + carta verificata + profilo minimo (incluso telefono
-    autodichiarato) + test Big Five sono tutti completi
-    (checklist/onboarding_completo) — stesso sottoinsieme minimo di prima,
-    il test Attaccamento/EQ/i campi liberi non sono un gate per 'Attivo'
-    (mai lo era stata la vecchia chat-intervista). Se un'immagine risulta
-    'Sospetta' alla moderazione (RF-06b), stato_account diventa 'In attesa
-    - verifica moderazione' e non transita mai automaticamente ad 'Attivo'
-    (il confronto sotto richiede stato_account == 'In attesa' esatto).
-    Aggiunge anche primo_passo_incompleto: indice (0-15, v. STEP_* sopra)
+    autodichiarato) + Big Five + Attaccamento + EQ + Test Profilo
+    Relazionale sono tutti completi (checklist/onboarding_completo) — i 2
+    campi liberi RF-07b/le liste piace-detesta non sono un gate per
+    'Attivo' (alimentano solo report/soft-score, mai il FINAL_SCORE). Se
+    un'immagine risulta 'Sospetta' alla moderazione (RF-06b), stato_account
+    diventa 'In attesa - verifica moderazione' e non transita mai
+    automaticamente ad 'Attivo' (il confronto sotto richiede
+    stato_account == 'In attesa' esatto).
+    Aggiunge anche primo_passo_incompleto: indice (0-16, v. STEP_* sopra)
     del primo passo del wizard non ancora completato, usato per riprendere
     da dove l'utente era rimasto — copre più passi di quelli richiesti per
-    'Attivo' (stato civile, foto, criteri, attaccamento/EQ/narrativa)."""
+    'Attivo' (stato civile, foto, criteri, narrativa/liste)."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -202,6 +210,7 @@ def stato_onboarding(user_id: UUID):
                ps.score_big5_estroversione IS NOT NULL AS bigfive_ok,
                ps.ansia_score IS NOT NULL AS attaccamento_ok,
                ps.eq_pilastro_autoconsapevolezza IS NOT NULL AS eq_ok,
+               ps.profilo_valori_self IS NOT NULL AS profilo_relazionale_ok,
                pn.descrizione_di_se IS NOT NULL AND pn.descrizione_partner_ideale IS NOT NULL AS narrativa_ok,
                it.data_ultima_modifica IS NOT NULL AS liste_ok
         FROM users u
@@ -231,6 +240,12 @@ def stato_onboarding(user_id: UUID):
         # dashboard senza mai attraversare questi due step del wizard.
         "test_attaccamento_completato": r["attaccamento_ok"],
         "test_eq_completato": r["eq_ok"],
+        # 2026-08-21 (Blocco D — v. CLAUDE.md): decisione esplicita
+        # dell'utente — a differenza dei 2 campi liberi RF-07b (mai nel
+        # gate), il Test Profilo Relazionale entra per davvero nel
+        # FINAL_SCORE (w3=0.20), quindi è una componente obbligatoria come
+        # Big Five/Attaccamento/EQ, non opzionale.
+        "test_profilo_relazionale_completato": r["profilo_relazionale_ok"],
     }
     completo = all(checklist.values())
 
@@ -266,6 +281,8 @@ def stato_onboarding(user_id: UUID):
         primo_passo_incompleto = STEP_ATTACCAMENTO
     elif not r["eq_ok"]:
         primo_passo_incompleto = STEP_EQ
+    elif not r["profilo_relazionale_ok"]:
+        primo_passo_incompleto = STEP_PROFILO_RELAZIONALE
     elif not r["narrativa_ok"]:
         primo_passo_incompleto = STEP_NARRATIVE
     elif not r["liste_ok"]:
@@ -319,6 +336,13 @@ def dashboard(user_id: UUID):
         WHERE (user_a_id = %s OR user_b_id = %s) AND stato IN ('Proposto', 'Accettato_A', 'Accettato_B')
     """, (str(user_id), str(user_id)))
     ha_proposta_attiva = cur.fetchone() is not None
+
+    # Blocco E (v. CLAUDE.md — Ainima_Dashboard_Trigger_Email_v1.md §1): la
+    # dashboard non deve mai sembrare vuota — priorità 1 proposta (sopra),
+    # 2 domande di affinamento pendenti, 3 pillola da leggere, mostrate
+    # impilate se coesistono, mai un unico blocco che le confonde (lasciato
+    # al frontend, qui solo il dato grezzo).
+    stato_engagement = engagement.stato_dashboard_engagement(cur, user_id)
     conn.close()
 
     return {
@@ -327,4 +351,6 @@ def dashboard(user_id: UUID):
         "data_scadenza_abbonamento": u["data_scadenza_abbonamento"],
         "prossima_data_ciclo": _prossima_data_ciclo(giorno_ciclo) if u["stato_account"] == "Attivo" else None,
         "ha_proposta_attiva": ha_proposta_attiva,
+        "domande_affinamento_pendenti": stato_engagement["domande_pendenti"],
+        "pillola_pendente": stato_engagement["pillola_pendente"],
     }

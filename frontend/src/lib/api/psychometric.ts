@@ -9,6 +9,8 @@ import type {
   EqResult,
   EqSubmission,
   NarrativeUpdate,
+  ProfiloRelazionaleResult,
+  ProfiloRelazionaleSubmission,
   ReportOut,
 } from "./types";
 
@@ -21,6 +23,9 @@ export const psychometricApi = {
 
   submitEq: (userId: string, payload: EqSubmission) =>
     apiClient.post<EqResult>(`/users/${userId}/eq`, payload),
+
+  submitProfiloRelazionale: (userId: string, payload: ProfiloRelazionaleSubmission) =>
+    apiClient.post<ProfiloRelazionaleResult>(`/users/${userId}/profilo-relazionale`, payload),
 
   updateNarrative: (userId: string, payload: NarrativeUpdate) =>
     apiClient.put<{ aggiornato: boolean }>(`/users/${userId}/narrative`, payload),

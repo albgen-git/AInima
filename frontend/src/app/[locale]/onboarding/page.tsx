@@ -20,6 +20,7 @@ import { StepPreferences } from "@/components/onboarding/StepPreferences";
 import { StepBigFive } from "@/components/onboarding/StepBigFive";
 import { StepAttaccamento } from "@/components/onboarding/StepAttaccamento";
 import { StepEq } from "@/components/onboarding/StepEq";
+import { StepProfiloRelazionale } from "@/components/onboarding/StepProfiloRelazionale";
 import { StepNarrative } from "@/components/onboarding/StepNarrative";
 import { StepInterestTags } from "@/components/onboarding/StepInterestTags";
 import { StepSummary } from "@/components/onboarding/StepSummary";
@@ -36,6 +37,12 @@ import { StepSummary } from "@/components/onboarding/StepSummary";
 // 2026-08-20 (v. CLAUDE.md, punto 5 audit): nuovo step "interestTags" —
 // liste "mi piace/non sopporto" (RF-08c, Ainima_Liste_Piace_Detesta_v1.md),
 // a differenza di "narrative" queste ENTRANO nel calcolo del match.
+//
+// 2026-08-21 (Blocco D — v. CLAUDE.md): nuovo step "profiloRelazionale"
+// (26 item, Ainima_Test_Profilo_Relazionale_v1.md) — sostituisce il
+// confronto a embedding tra i campi liberi nel calcolo di matching,
+// raggruppato con gli altri test Likert deterministici (bigfive →
+// attaccamento → eq → profiloRelazionale), prima di "narrative".
 const STEP_KEYS = [
   "email", // unico punto d'ingresso — crea l'account (sola email) se nuovo
   "otpVerify", // verifica OTP — qui nasce la sessione (userId)
@@ -50,6 +57,7 @@ const STEP_KEYS = [
   "bigfive",
   "attaccamento",
   "eq",
+  "profiloRelazionale",
   "narrative",
   "interestTags",
   "summary",
@@ -131,9 +139,10 @@ export default function OnboardingPage() {
           {stepIndex === 10 && <StepBigFive {...commonProps} />}
           {stepIndex === 11 && <StepAttaccamento {...commonProps} />}
           {stepIndex === 12 && <StepEq {...commonProps} />}
-          {stepIndex === 13 && <StepNarrative {...commonProps} />}
-          {stepIndex === 14 && <StepInterestTags {...commonProps} />}
-          {stepIndex === 15 && <StepSummary {...commonProps} />}
+          {stepIndex === 13 && <StepProfiloRelazionale {...commonProps} />}
+          {stepIndex === 14 && <StepNarrative {...commonProps} />}
+          {stepIndex === 15 && <StepInterestTags {...commonProps} />}
+          {stepIndex === 16 && <StepSummary {...commonProps} />}
         </div>
       </PageShell>
     </main>

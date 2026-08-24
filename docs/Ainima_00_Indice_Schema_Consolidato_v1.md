@@ -85,6 +85,37 @@ dimensione. Conteggio item aggiornato:
 | Profilo Relazionale | 26 | 26 *(nessun item invertito, non toccato)* |
 | **Totale item chiusi** | **132** | **108** |
 
+**Correzione post-implementazione (Blocco C, scoperta da Claude Code —
+due passate):**
+
+*Prima passata:* la formula di `confidenza_dimensione` (Documento 1 §7,
+Documento 6 §10) produce solo due valori (`0.6`/`1.0`), non un continuo
+— le soglie a valle erano rimaste tarate su una versione graduata
+precedente. Corrette (`== 0.6`, non `< 0.6`). Colmato un buco:
+mancava la formula di `confidenza_dimensione` per l'Attaccamento —
+ora in `Ainima_Test_Attaccamento_v1.md` §5 Step 3bis.
+
+*Seconda passata:* l'implementazione del Blocco C ha rivelato tre
+problemi più profondi. (1) Il contatore per `flag_profilo_per_revisione_dati`
+contava **controlli falliti**, non **dimensioni distinte** — se 2
+controlli diversi puntavano sulla stessa dimensione EQ (Autoregolazione),
+il conteggio si gonfiava artificialmente. (2) `confidenza_big5_*` (dalla
+varianza interna) non entrava mai nel conteggio unificato, nonostante
+la regola dichiarasse esplicitamente "Big Five + EQ + Attaccamento".
+(3) Il documento EQ Score §4 aveva ancora una **regola locale separata**
+(`flag_incoerenza_statistica >= 2`) mai allineata alla regola unificata
+del Big Five — le due entravano in conflitto, e il codice era fedele
+alla regola vecchia dell'EQ, non a quella nuova del Big Five. Corretto
+tutto: la regola locale dell'EQ è **ritirata** (il meccanismo dei 3
+controlli incrociati resta, ma alimenta il conteggio unico, non decide
+da solo); il conteggio ora è esplicitamente su un **insieme di 11
+dimensioni distinte** (5 Big Five + 4 EQ + 2 Attaccamento), formula
+completa in `Ainima_Algoritmo_Ranking_Finale_v1.md`. Aggiunto anche un
+controllo di varianza interna proprio dell'EQ (`Ainima_Test_EQScore_v1.md`
+§4a) che prima mancava del tutto per Autoconsapevolezza e Responsabilità
+relazionale — questi due pilastri non avevano alcun controllo qualità,
+né interno né incrociato.
+
 **Domande trappola condivise (nuove, sostituiscono parte del controllo perso col taglio):**
 3 item di attenzione, indipendenti da qualunque dimensione, inseriti uno
 ciascuno dentro Big Five, Attaccamento ed EQ Score (posizione
@@ -174,6 +205,8 @@ bassa (1, non 2) rispetto agli altri meccanismi di confidenza.
 ### 4.4 Personalità — Big Five (Documento 1)
 `score_big5_estroversione`, `score_big5_gradevolezza`, `score_big5_coscienziosita`, `score_big5_nevroticismo`, `score_big5_apertura` — tutti Float 0.0-1.0.
 
+`confidenza_big5_estroversione`, `confidenza_big5_gradevolezza`, `confidenza_big5_coscienziosita`, `confidenza_big5_nevroticismo`, `confidenza_big5_apertura` — Float, valori possibili solo `0.6`/`1.0`, da controllo di varianza interna (Documento 1, §7 Step 4). Entrano nell'insieme unificato per `flag_profilo_per_revisione_dati` — vedi 4.6 sotto.
+
 ### 4.5 Attaccamento (Documento 2) — ⚠️ campo superato
 | Campo | Stato | Tipo | Note |
 |---|---|---|---|
@@ -181,13 +214,15 @@ bassa (1, non 2) rispetto agli altri meccanismi di confidenza.
 | `ansia_score` | Nuovo | Float 0.0-1.0 | Dato primario |
 | `evitamento_score` | Nuovo | Float 0.0-1.0 | Dato primario |
 | `stile_attaccamento` | Derivato | Enum | Solo per UI — calcolato con soglie deterministiche (Documento 2, §5, Step 4), non più argmax di una distribuzione LLM |
+| `confidenza_attaccamento_ansia`, `confidenza_attaccamento_evitamento` | Nuovo | Float, valori possibili solo `0.6`/`1.0` | Da controllo di varianza interna (Documento 2, §5 Step 3bis) — mancava, colmato durante il Blocco C |
 
 ### 4.6 EQ Score (Documento 3)
 | Campo | Tipo | Note |
 |---|---|---|
 | `eq_pilastro_autoconsapevolezza`, `eq_pilastro_autoregolazione`, `eq_pilastro_empatia`, `eq_pilastro_responsabilita` | Float 0.0-1.0 | Da test scritto, non più da rubric-scorer LLM |
 | `score_maturita_emotiva` | Float 0.0-1.0 | Media pesata dei 4 pilastri |
-| `flag_profilo_per_revisione_dati` | Boolean | Deriva da: (a) `confidenza_dimensione` bassa su ≥2 dimensioni (Documento 1 §7, Documento 3 §4), (b) quadrante Timoroso/Disorganizzato dell'attaccamento (Documento 7, §10), oppure (c) `flag_trappola_fallita` (Documento 00, sezione domande trappola) |
+| `confidenza_eq_autoconsapevolezza`, `confidenza_eq_autoregolazione`, `confidenza_eq_empatia`, `confidenza_eq_responsabilita` | Float, valori possibili solo `0.6`/`1.0` | Da varianza interna (Documento 3, §4a) **e/o** da coerenza incrociata col Big Five (Documento 3, §4b) — si prende il valore minore se entrambi i controlli si applicano. Mancava del tutto per Autoconsapevolezza/Responsabilità prima del Blocco C |
+| `flag_profilo_per_revisione_dati` | Boolean | Deriva da: (a) ≥2 dimensioni distinte (su un insieme di 11: 5 Big Five + 4 EQ + 2 Attaccamento) con `confidenza_dimensione == 0.6` — formula completa in Documento 7, sezione "Soglia per revisione umana"; (b) quadrante Timoroso/Disorganizzato dell'attaccamento (Documento 7, §10); oppure (c) `flag_trappola_fallita >= 1` |
 | `flag_trappola_fallita` | Integer | Numero di domande trappola fallite (su 3 totali, una per Big Five/Attaccamento/EQ Score) |
 
 ### 4.6bis Test Profilo Relazionale (Documento 4) — nuovo, sostituisce l'8 campo dell'embedding

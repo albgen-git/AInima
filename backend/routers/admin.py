@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from db import get_conn
 from schemas.account import ModerationDecisionIn, RecoveryDecisionIn
 from schemas.admin import AccountStatusUpdate, SystemConfigUpdate
+from services import engagement
 from services.email_provider import get_email_provider
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -85,6 +86,7 @@ def perche_questo_match(match_id: UUID):
         SELECT m.match_id, m.user_a_id, m.user_b_id, m.stato, m.final_score,
                m.data_proposta, m.algoritmo_versione, m.algoritmo_parametri,
                m.selezionato_per_somiglianza_visiva, m.shortlist_candidati,
+               m.flag_rifiuto_esplicito, m.flag_asimmetria_narrativa,
                v.descrizione AS algoritmo_descrizione, v.data_introduzione AS algoritmo_data_introduzione
         FROM matches m
         LEFT JOIN matching_algorithm_versions v ON v.versione = m.algoritmo_versione
@@ -129,6 +131,20 @@ def aggiorna_config(chiave: str, payload: SystemConfigUpdate):
     conn.commit()
     conn.close()
     return {"aggiornato": True}
+
+
+@router.post("/engagement/invia-email-batch")
+def invia_email_engagement_batch(dry_run: bool = True):
+    """Blocco E (v. CLAUDE.md — Ainima_Dashboard_Trigger_Email_v1.md §2.2):
+    svuota email_coda_prossimo_invio raggruppando per utente, rispettando
+    il tetto di frequenza. dry_run=True (default) calcola senza inviare —
+    passare dry_run=false per inviare davvero. Da schedulare nel giorno
+    fisso configurato (system_config.giorno_invio_email_engagement) —
+    nessuno scheduler reale in questo scheletro (v. run-cycle)."""
+    conn = get_conn()
+    risultati = engagement.invia_email_engagement_batch(conn, dry_run=dry_run)
+    conn.close()
+    return {"dry_run": dry_run, "risultati": risultati}
 
 
 @router.get("/metrics")

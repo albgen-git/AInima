@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card, PageShell } from "@/components/ui";
+import { AffinamentoCard } from "@/components/dashboard/AffinamentoCard";
+import { PillolaCard } from "@/components/dashboard/PillolaCard";
 import { authApi, type DashboardOut } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
@@ -12,17 +14,27 @@ export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const [data, setData] = useState<DashboardOut | null>(null);
   const { run, loading, error } = useAsyncAction(authApi.getDashboard);
+  const userId = getUserId();
 
-  useEffect(() => {
-    const userId = getUserId();
+  function ricarica() {
     if (!userId) return;
     run(userId).then((result) => {
       if (result) setData(result);
     });
+  }
+
+  useEffect(() => {
+    ricarica();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isActive = data?.stato_account === "Attivo";
+  const nDomandePendenti = data?.domande_affinamento_pendenti.length ?? 0;
+  // Blocco E (Ainima_Dashboard_Trigger_Email_v1.md §1): la dashboard non
+  // deve mai sembrare vuota — se nessuno dei 3 stati con priorità è
+  // presente, un messaggio rassicurante prende il loro posto, mai un vuoto.
+  const nienteDaMostrare =
+    !!data && !data.ha_proposta_attiva && nDomandePendenti === 0 && !data.pillola_pendente;
 
   return (
     <PageShell>
@@ -68,6 +80,20 @@ export default function DashboardPage() {
               <Link href="/proposal">
                 <Button className="mt-4">{t("viewProposal")}</Button>
               </Link>
+            </Card>
+          )}
+
+          {userId && nDomandePendenti > 0 && (
+            <AffinamentoCard userId={userId} count={nDomandePendenti} onCompleted={ricarica} />
+          )}
+
+          {userId && data.pillola_pendente && (
+            <PillolaCard userId={userId} pillola={data.pillola_pendente} />
+          )}
+
+          {nienteDaMostrare && (
+            <Card className="text-center">
+              <p className="text-sm text-slate">{t("nothingPending")}</p>
             </Card>
           )}
 

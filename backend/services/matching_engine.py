@@ -31,6 +31,16 @@ delle similarità ArcFace tra coppie CASUALI del pool era già 0.334, quindi
 su tre. Ora è un valore ricalcolato su un percentile configurabile della
 distribuzione reale (`soglia_similarita_visiva_minima`/
 `soglia_percentile_similarita_visiva` in system_config).
+
+Aggiornamento 2026-08-21 (stable_v8, v. CLAUDE.md — Blocco D,
+Ainima_Test_Profilo_Relazionale_v1.md): la Coerenza Narrativa (STEP 3) non
+usa più il confronto a embedding tra i campi liberi — sostituita da
+punteggio_narrativo_strutturato(), aritmetica diretta su 13 sotto-dimensioni
+chiuse (26 item, self vs partner ideale). coerenza_narrativa_score()
+rimossa, non solo rinominata (self_embedding_vector/ideal_embedding_vector
+restano calcolati per altri usi, ma load_pool() non li carica più per il
+matching). flag_asimmetria_narrativa ora persistito su matches, stesso
+trattamento di flag_rifiuto_esplicito (v. routers/matching.py, routers/admin.py).
 """
 
 import json
@@ -45,7 +55,7 @@ from services import tag_matching
 # estesa — da aggiornare (nuova riga in quella tabella + bump qui) ogni
 # volta che cambia la LOGICA dell'algoritmo, non i soli parametri (quelli
 # sono già tracciati automaticamente via system_config, v. run_monthly_batch).
-ALGORITMO_VERSIONE = "stable_v5"
+ALGORITMO_VERSIONE = "stable_v8"
 
 # Sopra questa penalità sui rifiuti espliciti, il flag va esposto invece
 # di restare nascosto dentro la media (Ainima_Liste_Piace_Detesta_v1.md §5).
@@ -70,6 +80,13 @@ def haversine_km(lon1, lat1, lon2, lat2):
 
 
 def bigfive_score(a, b):
+    """STEP 2 (Big Five). Ogni riga è pesata dalla confidenza minima tra i
+    due profili sulla dimensione da cui deriva (Blocco C, v. CLAUDE.md —
+    Ainima_Test_Psicometrico_BigFive_v1.md §7 Step 4): un profilo con
+    varianza interna anomala su una dimensione pesa meno quella riga nella
+    media finale, invece di contare quanto un dato affidabile. La riga
+    "assertivita" deriva dalla stessa dimensione Estroversione della riga
+    omonima, quindi condivide la sua confidenza."""
     nevro_diff = 1 - abs(a["nevroticismo"] - b["nevroticismo"])
     nevro_bonus = 0.1 if (a["nevroticismo"] + b["nevroticismo"]) / 2 < 0.3 else 0.0
     nevro = min(1.0, nevro_diff + nevro_bonus)
@@ -79,8 +96,18 @@ def bigfive_score(a, b):
     assertivita = max(0.0, 1 - abs(diff_e - 0.3) / 0.7)
     estroversione = 1 - abs(a["estroversione"] - b["estroversione"]) * 0.5
     gradevolezza = (a["gradevolezza"] + b["gradevolezza"]) / 2
-    righe = [nevro, coscienziosita, assertivita, estroversione, gradevolezza, apertura]
-    return sum(righe) / len(righe)
+
+    conf_estroversione = min(a["conf_estroversione"], b["conf_estroversione"])
+    righe_pesate = [
+        (nevro, min(a["conf_nevroticismo"], b["conf_nevroticismo"])),
+        (coscienziosita, min(a["conf_coscienziosita"], b["conf_coscienziosita"])),
+        (assertivita, conf_estroversione),
+        (estroversione, conf_estroversione),
+        (gradevolezza, min(a["conf_gradevolezza"], b["conf_gradevolezza"])),
+        (apertura, min(a["conf_apertura"], b["conf_apertura"])),
+    ]
+    peso_totale = sum(peso for _, peso in righe_pesate)
+    return sum(valore * peso for valore, peso in righe_pesate) / peso_totale
 
 
 def eq_score(a, b):
@@ -104,22 +131,56 @@ def eq_score(a, b):
     return punteggio_maturita * 0.6 + attaccamento_score * 0.4
 
 
-def coerenza_narrativa_score(a, b):
-    """STEP 3 (Ainima_Matching_Semantico_Report_v1.md §5): sostituisce il
-    Judge LLM Prompt 4 (rimosso) — similarità vettoriale pura tra i profili
-    canonici self/ideal, bidirezionale, con penalità se le due direzioni
-    sono molto asimmetriche. Ritorna 0.5 (neutro) se manca l'embedding di
-    almeno uno dei due lati — dato non ancora disponibile, non un segnale
-    di incompatibilità (stesso trattamento "neutro" usato nei documenti per
-    l'informazione mancante)."""
-    if a["self_emb"] is None or a["ideal_emb"] is None or b["self_emb"] is None or b["ideal_emb"] is None:
-        return 0.5
-    coerenza_a_verso_b = cosine(a["ideal_emb"], b["self_emb"])
-    coerenza_b_verso_a = cosine(b["ideal_emb"], a["self_emb"])
-    punteggio = (coerenza_a_verso_b + coerenza_b_verso_a) / 2
-    if abs(coerenza_a_verso_b - coerenza_b_verso_a) > 0.4:
-        punteggio *= 0.75
-    return punteggio
+# Nome-categoria -> chiavi delle sotto-dimensioni, stesso ordine del
+# documento (Ainima_Test_Profilo_Relazionale_v1.md §2-5). Duplicato qui
+# (non importato da schemas.psychometric) perché matching_engine.py non
+# dipende da nessun modulo di schemas/routers — v. principio già seguito
+# per le altre funzioni di scoring, che leggono solo dai dict del pool.
+SOTTODIMENSIONI_PROFILO_RELAZIONALE = {
+    "valori": ["centralita_famiglia", "orientamento_carriera", "bisogno_stabilita", "crescita_personale"],
+    "stile_vita": ["socialita", "organizzazione", "ritmo_vita"],
+    "dinamica_relazionale": ["autonomia_fusione", "condivisione_ruoli", "espressivita_emotiva"],
+    "aspirazioni": ["impegno_lungo_termine", "mobilita_geografica", "orizzonte_progettuale"],
+}
+
+
+def punteggio_narrativo_strutturato(a, b):
+    """STEP 3 (Ainima_Test_Profilo_Relazionale_v1.md §6, Blocco D — v.
+    CLAUDE.md): sostituisce coerenza_narrativa_score() (similarità a
+    embedding, rimossa) — aritmetica diretta su 13 sotto-dimensioni chiuse
+    (26 item, self vs partner ideale), bidirezionale come la vecchia
+    versione ma per sotto-dimensione invece che sull'intero profilo.
+
+    Ritorna (punteggio, flag_asimmetria_narrativa): il flag scatta se ANCHE
+    UNA SOLA sotto-dimensione ha uno scarto > 0.5 tra le due direzioni —
+    un'asimmetria forte e localizzata non va mediata via silenziosamente
+    (stesso principio già applicato a flag_rifiuto_esplicito).
+
+    Ritorna (0.5, False) — neutro, non un segnale di incompatibilità — se
+    manca anche un solo profilo_*_self/partner_ideale per uno dei due lati
+    (dato non ancora disponibile, stesso trattamento della vecchia versione
+    per l'embedding mancante)."""
+    campi = [f"profilo_{cat}_self" for cat in SOTTODIMENSIONI_PROFILO_RELAZIONALE] + \
+            [f"profilo_{cat}_partner_ideale" for cat in SOTTODIMENSIONI_PROFILO_RELAZIONALE]
+    if any(a[campo] is None or b[campo] is None for campo in campi):
+        return 0.5, False
+
+    flag_asimmetria = False
+    punteggi_categoria = []
+    for categoria, sottodim in SOTTODIMENSIONI_PROFILO_RELAZIONALE.items():
+        a_self, a_ideale = a[f"profilo_{categoria}_self"], a[f"profilo_{categoria}_partner_ideale"]
+        b_self, b_ideale = b[f"profilo_{categoria}_self"], b[f"profilo_{categoria}_partner_ideale"]
+        compatibilita_sottodim = []
+        for d in sottodim:
+            coerenza_a_verso_b = 1 - abs(a_self[d] - b_ideale[d])
+            coerenza_b_verso_a = 1 - abs(b_self[d] - a_ideale[d])
+            compatibilita_sottodim.append((coerenza_a_verso_b + coerenza_b_verso_a) / 2)
+            if abs(coerenza_a_verso_b - coerenza_b_verso_a) > 0.5:
+                flag_asimmetria = True
+        punteggi_categoria.append(sum(compatibilita_sottodim) / len(compatibilita_sottodim))
+
+    punteggio = sum(punteggi_categoria) / len(punteggi_categoria)
+    return punteggio, flag_asimmetria
 
 
 def tag_overlap_score(source_embs, target_embs):
@@ -309,8 +370,15 @@ def load_pool(cur):
                so.importanza_religione, so.importanza_vicinanza_geografica, so.lingue_parlate,
                ps.score_big5_estroversione, ps.score_big5_gradevolezza,
                ps.score_big5_coscienziosita, ps.score_big5_nevroticismo, ps.score_big5_apertura,
+               ps.confidenza_big5_estroversione, ps.confidenza_big5_gradevolezza,
+               ps.confidenza_big5_coscienziosita, ps.confidenza_big5_nevroticismo,
+               ps.confidenza_big5_apertura,
                ps.score_maturita_emotiva, ps.ansia_score, ps.evitamento_score,
-               ps.flag_profilo_per_revisione_dati, ps.self_embedding_vector, ps.ideal_embedding_vector,
+               ps.flag_profilo_per_revisione_dati,
+               ps.profilo_valori_self, ps.profilo_valori_partner_ideale,
+               ps.profilo_stile_vita_self, ps.profilo_stile_vita_partner_ideale,
+               ps.profilo_dinamica_relazionale_self, ps.profilo_dinamica_relazionale_partner_ideale,
+               ps.profilo_aspirazioni_self, ps.profilo_aspirazioni_partner_ideale,
                it.mi_piace_tags, it.non_sopporto_tags, it.partner_vorrei_tags, it.partner_non_vorrei_tags
         FROM users u
         JOIN socio_profile s ON s.user_id = u.user_id
@@ -381,10 +449,29 @@ def load_pool(cur):
             "estroversione": r["score_big5_estroversione"], "gradevolezza": r["score_big5_gradevolezza"],
             "coscienziosita": r["score_big5_coscienziosita"], "nevroticismo": r["score_big5_nevroticismo"],
             "apertura": r["score_big5_apertura"], "maturita": r["score_maturita_emotiva"],
+            # Blocco C (v. CLAUDE.md): colonne NOT NULL DEFAULT 1.0 a schema,
+            # il fallback qui è solo difensivo (stesso trattamento già
+            # riservato ad ansia/evitamento sopra), non un caso atteso.
+            "conf_estroversione": r["confidenza_big5_estroversione"] if r["confidenza_big5_estroversione"] is not None else 1.0,
+            "conf_gradevolezza": r["confidenza_big5_gradevolezza"] if r["confidenza_big5_gradevolezza"] is not None else 1.0,
+            "conf_coscienziosita": r["confidenza_big5_coscienziosita"] if r["confidenza_big5_coscienziosita"] is not None else 1.0,
+            "conf_nevroticismo": r["confidenza_big5_nevroticismo"] if r["confidenza_big5_nevroticismo"] is not None else 1.0,
+            "conf_apertura": r["confidenza_big5_apertura"] if r["confidenza_big5_apertura"] is not None else 1.0,
             "ansia": r["ansia_score"] if r["ansia_score"] is not None else 0.5,
             "evitamento": r["evitamento_score"] if r["evitamento_score"] is not None else 0.5,
             "flag_revisione": r["flag_profilo_per_revisione_dati"],
-            "self_emb": r["self_embedding_vector"], "ideal_emb": r["ideal_embedding_vector"],
+            # Test Profilo Relazionale (Blocco D — v. CLAUDE.md): dict già
+            # deserializzati da psycopg2 (colonne JSONB), None se il test non
+            # è stato ancora completato — punteggio_narrativo_strutturato()
+            # gestisce il fallback neutro.
+            "profilo_valori_self": r["profilo_valori_self"],
+            "profilo_valori_partner_ideale": r["profilo_valori_partner_ideale"],
+            "profilo_stile_vita_self": r["profilo_stile_vita_self"],
+            "profilo_stile_vita_partner_ideale": r["profilo_stile_vita_partner_ideale"],
+            "profilo_dinamica_relazionale_self": r["profilo_dinamica_relazionale_self"],
+            "profilo_dinamica_relazionale_partner_ideale": r["profilo_dinamica_relazionale_partner_ideale"],
+            "profilo_aspirazioni_self": r["profilo_aspirazioni_self"],
+            "profilo_aspirazioni_partner_ideale": r["profilo_aspirazioni_partner_ideale"],
             "mi_piace_emb": _risolvi(r["mi_piace_tags"]),
             "non_sopporto_emb": _risolvi(r["non_sopporto_tags"]),
             "partner_vorrei_emb": _risolvi(r["partner_vorrei_tags"]),
@@ -470,13 +557,14 @@ def find_best_match(seeker_id, pool, cfg):
             continue
         bf = bigfive_score(seeker, cand)
         eq = eq_score(seeker, cand)
-        narrativa = coerenza_narrativa_score(seeker, cand)
+        narrativa, flag_asimmetria_narrativa = punteggio_narrativo_strutturato(seeker, cand)
         soft, flag_rifiuto_esplicito = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
         candidati.append({"id": cand_id, "cand": cand, "dist": dist, "bf": bf, "eq": eq,
                            "narrativa": narrativa, "soft": soft, "final": final,
-                           "flag_rifiuto_esplicito": flag_rifiuto_esplicito})
+                           "flag_rifiuto_esplicito": flag_rifiuto_esplicito,
+                           "flag_asimmetria_narrativa": flag_asimmetria_narrativa})
 
     if not candidati:
         return {"esito": "nessun_candidato"}
@@ -501,6 +589,7 @@ def find_best_match(seeker_id, pool, cfg):
         "distanza_km": vincitore["dist"],
         "selezionato_per_somiglianza_visiva": selezionato_per_somiglianza_visiva,
         "flag_rifiuto_esplicito": vincitore["flag_rifiuto_esplicito"],
+        "flag_asimmetria_narrativa": vincitore["flag_asimmetria_narrativa"],
         "shortlist": [c["id"] for c in candidati[:n]],
     }
 
@@ -547,7 +636,7 @@ def build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati):
             continue
         bf = bigfive_score(seeker, cand)
         eq = eq_score(seeker, cand)
-        narrativa = coerenza_narrativa_score(seeker, cand)
+        narrativa, _ = punteggio_narrativo_strutturato(seeker, cand)
         soft, _ = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
@@ -671,7 +760,7 @@ def run_monthly_batch(conn, dry_run=True):
             scritti.add(cand_id)
             bf = bigfive_score(pool[uid], pool[cand_id])
             eq = eq_score(pool[uid], pool[cand_id])
-            narrativa = coerenza_narrativa_score(pool[uid], pool[cand_id])
+            narrativa, flag_asimmetria_narrativa = punteggio_narrativo_strutturato(pool[uid], pool[cand_id])
             dist = haversine_km(pool[uid]["lon"], pool[uid]["lat"], pool[cand_id]["lon"], pool[cand_id]["lat"])
             _, punteggio_distanza = valuta_distanza(pool[uid], pool[cand_id], dist, cfg)
             soft, flag_rifiuto_esplicito = combina_soft_e_distanza(pool[uid], pool[cand_id], punteggio_distanza)
@@ -685,7 +774,8 @@ def run_monthly_batch(conn, dry_run=True):
                 (top_selezionato_visivo.get(cand_id) and preference_lists[cand_id][0] == uid)
             )
             esito = {"esito": "proposta", "seeker_id": uid, "candidato_id": cand_id, "final_score": final_score,
-                      "flag_rifiuto_esplicito": flag_rifiuto_esplicito}
+                      "flag_rifiuto_esplicito": flag_rifiuto_esplicito,
+                      "flag_asimmetria_narrativa": flag_asimmetria_narrativa}
             risultati.append(esito)
 
             if not dry_run:
@@ -695,11 +785,13 @@ def run_monthly_batch(conn, dry_run=True):
                 cur.execute("""
                     INSERT INTO matches (user_a_id, user_b_id, stato, final_score,
                                          data_scadenza_risposta, algoritmo_versione, algoritmo_parametri,
-                                         shortlist_candidati, selezionato_per_somiglianza_visiva)
-                    VALUES (%s, %s, 'Proposto', %s, %s, %s, %s::jsonb, %s::uuid[], %s)
+                                         shortlist_candidati, selezionato_per_somiglianza_visiva,
+                                         flag_rifiuto_esplicito, flag_asimmetria_narrativa)
+                    VALUES (%s, %s, 'Proposto', %s, %s, %s, %s::jsonb, %s::uuid[], %s, %s, %s)
                 """, (str(uid), str(cand_id), final_score, scadenza,
                       ALGORITMO_VERSIONE, json.dumps(cfg),
-                      [str(c) for c in shortlist], bool(selezionato_visivo)))
+                      [str(c) for c in shortlist], bool(selezionato_visivo),
+                      bool(flag_rifiuto_esplicito), bool(flag_asimmetria_narrativa)))
         elif uid in motivi_vuoti:
             risultati.append({"esito": motivi_vuoti[uid], "seeker_id": uid})
             scritti.add(uid)

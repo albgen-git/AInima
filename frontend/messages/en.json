@@ -41,6 +41,7 @@
       "bigfive": "Personality",
       "attaccamento": "Attachment",
       "eq": "Emotional intelligence",
+      "profiloRelazionale": "Relational profile",
       "narrative": "About you",
       "interestTags": "Likes & dislikes",
       "summary": "Summary"
@@ -212,7 +213,7 @@
     },
     "bigfive": {
       "title": "Personality test",
-      "subtitle": "40 statements, no right or wrong answer: go with your gut.",
+      "subtitle": "41 statements, no right or wrong answer: go with your gut.",
       "scale1": "Strongly disagree",
       "scale2": "Slightly disagree",
       "scale3": "Neutral / Depends",
@@ -234,7 +235,7 @@
     },
     "attaccamento": {
       "title": "How you experience closeness",
-      "subtitle": "24 statements, no right or wrong answer: go with your gut, thinking about your romantic relationships.",
+      "subtitle": "19 statements, no right or wrong answer: go with your gut, thinking about your romantic relationships.",
       "scale1": "Strongly disagree",
       "scale2": "Slightly disagree",
       "scale3": "Neutral / Depends",
@@ -245,7 +246,18 @@
     },
     "eq": {
       "title": "How you handle emotions",
-      "subtitle": "32 statements, no right or wrong answer: go with your gut.",
+      "subtitle": "25 statements, no right or wrong answer: go with your gut.",
+      "scale1": "Strongly disagree",
+      "scale2": "Slightly disagree",
+      "scale3": "Neutral / Depends",
+      "scale4": "Slightly agree",
+      "scale5": "Strongly agree",
+      "progress": "Question {current} of {total}",
+      "completed": "Test completed"
+    },
+    "profiloRelazionale": {
+      "title": "Values, lifestyle, and aspirations",
+      "subtitle": "26 statements about you and the partner you picture — no right or wrong answer: go with your gut.",
       "scale1": "Strongly disagree",
       "scale2": "Slightly disagree",
       "scale3": "Neutral / Depends",
@@ -290,7 +302,8 @@
         "profilo_fisico_compilato": "Profile completed",
         "test_bigfive_completato": "Personality test completed",
         "test_attaccamento_completato": "Attachment test completed",
-        "test_eq_completato": "Emotional intelligence test completed"
+        "test_eq_completato": "Emotional intelligence test completed",
+        "test_profilo_relazionale_completato": "Relational profile test completed"
       },
       "goToDashboard": "Go to your home"
     }
@@ -308,7 +321,23 @@
     "viewProposal": "View the proposal",
     "quickLinksTitle": "Quick access",
     "goToRubrica": "Your contacts",
-    "goToProfile": "Edit your profile"
+    "goToProfile": "Edit your profile",
+    "nothingPending": "Your profile is up to date. We'll write as soon as there's something new.",
+    "affinamento": {
+      "title": "Refine your profile",
+      "teaser": "{count} questions to refine your profile.",
+      "cta": "Answer now",
+      "progress": "Question {current} of {total}",
+      "scale1": "Strongly disagree",
+      "scale2": "Slightly disagree",
+      "scale3": "Neutral / Depends",
+      "scale4": "Slightly agree",
+      "scale5": "Strongly agree"
+    },
+    "pillola": {
+      "title": "A little something for you",
+      "cta": "Read"
+    }
   },
   "proposal": {
     "title": "This month's proposal",

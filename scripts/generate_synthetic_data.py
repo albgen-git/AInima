@@ -17,13 +17,23 @@ Uso: python generate_synthetic_data.py
 import datetime
 import os
 import random
+import sys
 
 import numpy as np
 import psycopg2
+import psycopg2.extras
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
+
+# Per chiamare la vera _ricalcola_confidenza_e_flag() invece di duplicarne la
+# formula (v. CLAUDE.md, Blocco C seconda passata — Bug A trovato proprio in
+# una copia duplicata qui dentro): un bugfix futuro alla funzione condivisa
+# deve valere anche per il pool sintetico senza dover ricordare di
+# aggiornare due posti.
+sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
+from routers.psychometric import _ricalcola_confidenza_e_flag  # noqa: E402
 
 # ── Comuni Milano + hinterland, con coordinate reali (lat, lon) ───────────────
 # Peso più alto su Milano città, coda lunga verso Lodi/Pavia per dare varietà
@@ -82,6 +92,11 @@ def main():
     )
     conn.autocommit = False
     cur = conn.cursor()
+    # Cursore separato, stessa connessione/transazione, solo per
+    # _ricalcola_confidenza_e_flag() (si aspetta righe dict-like come
+    # backend/db.py::get_conn(), a differenza del cursore sopra che il resto
+    # dello script legge posizionalmente).
+    dict_cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cur.execute("""
         SELECT user_id, source_actor_id, nome, cognome, genere,
@@ -92,7 +107,6 @@ def main():
     print(f"Utenti da completare: {len(rows)}")
 
     oggi = datetime.date.today()
-    n_revisione_umana = 0
 
     for user_id, actor_id, nome, cognome, genere, orientamento, data_nascita in rows:
         seed = actor_id * 7919
@@ -177,8 +191,11 @@ def main():
         # (Ainima_Test_Attaccamento_v1.md) invece della distribuzione
         # Dirichlet a 4 stili, ed EQ/flag di revisione derivano dagli stessi
         # test scritti deterministici usati a runtime (v.
-        # routers/psychometric.py._ricalcola_flag_revisione_dati, duplicata
-        # qui identica per coerenza col comportamento reale del sistema).
+        # routers/psychometric.py._ricalcola_confidenza_e_flag, CHIAMATA
+        # direttamente sotto — non più una copia locale della formula, dopo
+        # che una copia duplicata qui aveva riprodotto in silenzio un bug di
+        # conteggio (Bug A, v. CLAUDE.md, Blocco C seconda passata) mai
+        # corretto in questo file finché non è stato trovato altrove).
         #
         # Tentativo 1 (Big Five spostato correlato) e tentativo 2 (solo EQ/
         # attaccamento) erano falliti per lo stesso motivo del mondo
@@ -219,20 +236,6 @@ def main():
         else:
             stile_attaccamento = "Timoroso/Disorganizzato"
 
-        # Stessa formula di routers/psychometric.py._ricalcola_flag_revisione_dati
-        # (Ainima_Test_EQScore_v1.md §4 + Ainima_Algoritmo_Ranking_Finale_v1.md §10)
-        n_incoerenze = 0
-        if abs(big5["nevroticismo"] - (1 - eq_autoregolazione)) > 0.5:
-            n_incoerenze += 1
-        if abs(big5["coscienziosita"] - eq_autoregolazione) > 0.5:
-            n_incoerenze += 1
-        if abs((1 - big5["gradevolezza"]) - (1 - eq_empatia)) > 0.5:
-            n_incoerenze += 1
-        quadrante_timoroso = ansia_score > 0.7 and evitamento_score > 0.7
-        flag_revisione_dati = n_incoerenze >= 2 or quadrante_timoroso
-        if flag_revisione_dati:
-            n_revisione_umana += 1
-
         cur.execute(
             """
             INSERT INTO psychometric_scores (
@@ -241,9 +244,8 @@ def main():
                 score_maturita_emotiva,
                 eq_pilastro_autoconsapevolezza, eq_pilastro_autoregolazione,
                 eq_pilastro_empatia, eq_pilastro_responsabilita,
-                ansia_score, evitamento_score, stile_attaccamento,
-                flag_profilo_per_revisione_dati
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ansia_score, evitamento_score, stile_attaccamento
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 score_big5_estroversione = EXCLUDED.score_big5_estroversione,
                 score_big5_gradevolezza = EXCLUDED.score_big5_gradevolezza,
@@ -257,21 +259,35 @@ def main():
                 eq_pilastro_responsabilita = EXCLUDED.eq_pilastro_responsabilita,
                 ansia_score = EXCLUDED.ansia_score,
                 evitamento_score = EXCLUDED.evitamento_score,
-                stile_attaccamento = EXCLUDED.stile_attaccamento,
-                flag_profilo_per_revisione_dati = EXCLUDED.flag_profilo_per_revisione_dati
+                stile_attaccamento = EXCLUDED.stile_attaccamento
             """,
             (
                 str(user_id), big5["estroversione"], big5["gradevolezza"],
                 big5["coscienziosita"], big5["nevroticismo"], big5["apertura"],
                 score_maturita, eq_autoconsapevolezza, eq_autoregolazione, eq_empatia, eq_responsabilita,
-                ansia_score, evitamento_score, stile_attaccamento, flag_revisione_dati,
+                ansia_score, evitamento_score, stile_attaccamento,
             ),
         )
+        # flag_profilo_per_revisione_dati (e le confidenze EQ derivate)
+        # calcolati dalla funzione di produzione, non da una copia locale —
+        # v. nota in cima al file. confidenza_big5_*/attaccamento_*/eq_*_interna
+        # restano al default 1.0 (nessun item grezzo simulato per questo
+        # pool, quindi nessuna varianza interna rilevabile — comportamento
+        # corretto per dati sintetici, non un bug).
+        _ricalcola_confidenza_e_flag(dict_cur, user_id)
+
+    cur.execute("""
+        SELECT count(*) AS n FROM psychometric_scores ps
+        JOIN users u ON u.user_id = ps.user_id
+        WHERE u.source_actor_id IS NOT NULL AND ps.flag_profilo_per_revisione_dati
+    """)
+    n_revisione_umana = cur.fetchone()[0]
 
     conn.commit()
     print("Completato.")
-    print(f"  Profili con flag_profilo_per_revisione_dati (incoerenza statistica o quadrante Timoroso/Disorganizzato): {n_revisione_umana}")
+    print(f"  Profili con flag_profilo_per_revisione_dati (dalla funzione di produzione, non da una copia locale): {n_revisione_umana}")
 
+    dict_cur.close()
     cur.close()
     conn.close()
 

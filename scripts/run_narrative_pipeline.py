@@ -21,10 +21,21 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from db import get_conn  # noqa: E402
+from routers.psychometric import GENERAZIONE_PROFILO_CANONICO_ATTIVA  # noqa: E402
 from services import llm_pipeline, text_embedding  # noqa: E402
 
 
 def main():
+    # v. CLAUDE.md — stesso flag di routers/psychometric.py: Prompt 5 (il
+    # generatore del report che dovrebbe consumare questo output) non è mai
+    # stato implementato, quindi questo script pagherebbe chiamate LLM/
+    # embedding reali per colonne che nessun codice rilegge. In pausa
+    # insieme all'endpoint /narrative, stesso interruttore.
+    if not GENERAZIONE_PROFILO_CANONICO_ATTIVA:
+        print("GENERAZIONE_PROFILO_CANONICO_ATTIVA è False (v. CLAUDE.md) — "
+              "script in pausa, nessuna chiamata LLM/embedding effettuata.")
+        return
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()

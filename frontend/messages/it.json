@@ -41,6 +41,7 @@
       "bigfive": "Personalità",
       "attaccamento": "Attaccamento",
       "eq": "Intelligenza emotiva",
+      "profiloRelazionale": "Profilo relazionale",
       "narrative": "Raccontati",
       "interestTags": "Gusti e preferenze",
       "summary": "Riepilogo"
@@ -212,7 +213,7 @@
     },
     "bigfive": {
       "title": "Test di personalità",
-      "subtitle": "40 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto.",
+      "subtitle": "41 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto.",
       "scale1": "Per nulla d'accordo",
       "scale2": "Poco d'accordo",
       "scale3": "Neutro / Dipende",
@@ -234,7 +235,7 @@
     },
     "attaccamento": {
       "title": "Come vivi i legami",
-      "subtitle": "24 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto pensando alle tue relazioni sentimentali.",
+      "subtitle": "19 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto pensando alle tue relazioni sentimentali.",
       "scale1": "Per nulla d'accordo",
       "scale2": "Poco d'accordo",
       "scale3": "Neutro / Dipende",
@@ -245,7 +246,18 @@
     },
     "eq": {
       "title": "Come gestisci le emozioni",
-      "subtitle": "32 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto.",
+      "subtitle": "25 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto.",
+      "scale1": "Per nulla d'accordo",
+      "scale2": "Poco d'accordo",
+      "scale3": "Neutro / Dipende",
+      "scale4": "Abbastanza d'accordo",
+      "scale5": "Completamente d'accordo",
+      "progress": "Domanda {current} di {total}",
+      "completed": "Test completato"
+    },
+    "profiloRelazionale": {
+      "title": "Valori, stile di vita e aspirazioni",
+      "subtitle": "26 affermazioni su di te e sul partner che immagini — nessuna risposta giusta o sbagliata: rispondi d'istinto.",
       "scale1": "Per nulla d'accordo",
       "scale2": "Poco d'accordo",
       "scale3": "Neutro / Dipende",
@@ -290,7 +302,8 @@
         "profilo_fisico_compilato": "Profilo compilato",
         "test_bigfive_completato": "Test di personalità completato",
         "test_attaccamento_completato": "Test sull'attaccamento completato",
-        "test_eq_completato": "Test di intelligenza emotiva completato"
+        "test_eq_completato": "Test di intelligenza emotiva completato",
+        "test_profilo_relazionale_completato": "Test del profilo relazionale completato"
       },
       "goToDashboard": "Vai alla tua home"
     }
@@ -308,7 +321,23 @@
     "viewProposal": "Guarda la proposta",
     "quickLinksTitle": "Accesso rapido",
     "goToRubrica": "La tua rubrica",
-    "goToProfile": "Modifica il tuo profilo"
+    "goToProfile": "Modifica il tuo profilo",
+    "nothingPending": "Il tuo profilo è aggiornato. Ti scriveremo appena ci sarà qualcosa di nuovo.",
+    "affinamento": {
+      "title": "Affina il tuo profilo",
+      "teaser": "{count} domande per affinare il tuo profilo.",
+      "cta": "Rispondi ora",
+      "progress": "Domanda {current} di {total}",
+      "scale1": "Per nulla d'accordo",
+      "scale2": "Poco d'accordo",
+      "scale3": "Neutro / Dipende",
+      "scale4": "Abbastanza d'accordo",
+      "scale5": "Completamente d'accordo"
+    },
+    "pillola": {
+      "title": "Una pillola per te",
+      "cta": "Leggi"
+    }
   },
   "proposal": {
     "title": "La tua proposta del mese",

@@ -75,12 +75,37 @@ export interface OnboardingStatus {
   primo_passo_incompleto: number;
 }
 
+// Blocco E (Ainima_Dashboard_Trigger_Email_v1.md §1) — stati 2/3 della
+// dashboard, priorità sotto la proposta di abbinamento (ha_proposta_attiva,
+// priorità 1). domande_affinamento_pendenti è solo il testo (per il
+// teaser/conteggio) — per rispondere serve GET .../affinamento/pendenti,
+// che ritorna anche l'item_id.
+export interface PillolaPendenteOut {
+  pillola_id: string;
+  titolo: string;
+  testo: string;
+}
+
 export interface DashboardOut {
   stato_account: StatoAccount;
   livello_abbonamento: string | null;
   data_scadenza_abbonamento: string | null;
   prossima_data_ciclo: string | null; // solo se stato_account === "Attivo"
   ha_proposta_attiva: boolean;
+  domande_affinamento_pendenti: string[];
+  pillola_pendente: PillolaPendenteOut | null;
+}
+
+// ── engagement.py ──────────────────────────────────────────────────────
+
+export interface AffinamentoItemOut {
+  item_id: string;
+  testo_it: string;
+  testo_en: string;
+}
+
+export interface RispostaAffinamentoIn {
+  risposta: number; // 1-5
 }
 
 // ── profile.py ─────────────────────────────────────────────────────────
@@ -231,7 +256,7 @@ export interface InterestTagsUpdateResponse {
 // ── psychometric.py ────────────────────────────────────────────────────
 
 export interface BigFiveSubmission {
-  risposte: Record<string, number>; // 50 chiavi: E1-10, A1-10, C1-10, N1-10, O1-10, valori 1-5
+  risposte: Record<string, number>; // 41 chiavi: E1-8, A1-8, C1-8, N1-8, O1-8 + T1, valori 1-5
 }
 
 export interface BigFiveResult {
@@ -243,7 +268,7 @@ export interface BigFiveResult {
 }
 
 export interface AttaccamentoSubmission {
-  risposte: Record<string, number>; // 24 chiavi: AN1-12, EV1-12, valori 1-5
+  risposte: Record<string, number>; // 19 chiavi: AN1-9, EV1-9 + T2, valori 1-5
 }
 
 export interface AttaccamentoResult {
@@ -253,7 +278,7 @@ export interface AttaccamentoResult {
 }
 
 export interface EqSubmission {
-  risposte: Record<string, number>; // 32 chiavi: AC1-8, AR1-8, EM1-8, RE1-8, valori 1-5
+  risposte: Record<string, number>; // 25 chiavi: AC1-6, AR1-6, EM1-6, RE1-6 + T3, valori 1-5
 }
 
 export interface EqResult {
@@ -262,6 +287,28 @@ export interface EqResult {
   eq_pilastro_empatia: number;
   eq_pilastro_responsabilita: number;
   score_maturita_emotiva: number;
+}
+
+// Test Profilo Relazionale (Ainima_Test_Profilo_Relazionale_v1.md, Blocco D
+// — v. CLAUDE.md): 13 sotto-dimensioni in 4 categorie, self + partner
+// ideale, 26 item — sostituisce il confronto a embedding nel matching.
+export interface ProfiloRelazionaleSubmission {
+  risposte: Record<string, number>; // 26 chiavi: V1-4/S1-3/D1-3/A1-3 ciascuna con suffisso S/I, valori 1-5
+}
+
+export interface ProfiloRelazionaleSottodimensioni {
+  [chiave: string]: number;
+}
+
+export interface ProfiloRelazionaleResult {
+  profilo_valori_self: ProfiloRelazionaleSottodimensioni;
+  profilo_valori_partner_ideale: ProfiloRelazionaleSottodimensioni;
+  profilo_stile_vita_self: ProfiloRelazionaleSottodimensioni;
+  profilo_stile_vita_partner_ideale: ProfiloRelazionaleSottodimensioni;
+  profilo_dinamica_relazionale_self: ProfiloRelazionaleSottodimensioni;
+  profilo_dinamica_relazionale_partner_ideale: ProfiloRelazionaleSottodimensioni;
+  profilo_aspirazioni_self: ProfiloRelazionaleSottodimensioni;
+  profilo_aspirazioni_partner_ideale: ProfiloRelazionaleSottodimensioni;
 }
 
 export interface NarrativeUpdate {
@@ -310,20 +357,29 @@ export interface MatchDecisionResponse {
   nota?: string;
 }
 
-// Coerenza narrativa — calcolo vettoriale puro (cosine similarity tra
-// self/ideal embedding), non più un Judge LLM (Prompt 4, rimosso — v.
-// CLAUDE.md 2026-08-19, RNF-11). Richiede other_user_id esplicito, quindi
-// non utilizzabile direttamente dalla proposta anonima (v. nota in
-// matching.ts).
+// Coerenza narrativa — aritmetica diretta sul Test Profilo Relazionale
+// (Blocco D — v. CLAUDE.md), non più similarità a embedding né un Judge
+// LLM (RNF-11). Endpoint admin/debug (v. nota in lib/api/matching.ts):
+// flag esposto grezzo, mai riformulato — diverso da ProposalAnalysisOut
+// sotto, che è invece rivolto all'utente finale.
 export interface AffinityOut {
-  compatibilita_narrativa_complessiva: number;
+  punteggio_narrativo_strutturato: number;
+  flag_asimmetria_narrativa: boolean;
 }
 
-// GET /users/{id}/proposal/analysis — variante di AffinityOut che non
-// richiede/espone mai l'ID dell'altra persona (v. lib/api/matching.ts).
+// GET /users/{id}/proposal/analysis — rivolto all'utente finale (renderizzato
+// in proposal/page.tsx): non richiede/espone mai l'ID dell'altra persona (v.
+// lib/api/matching.ts), e a differenza di AffinityOut non espone mai un
+// flag booleano grezzo — solo un eventuale spunto costruttivo generico,
+// stesso principio già usato per il report EQ (mai un'etichetta cruda).
+export interface ProposalAnalisi {
+  punteggio_narrativo_strutturato: number;
+  spunto_di_attenzione: string | null;
+}
+
 export interface ProposalAnalysisOut {
   pronta: boolean;
-  analisi: AffinityOut | null;
+  analisi: ProposalAnalisi | null;
 }
 
 // ── payments.py ────────────────────────────────────────────────────────

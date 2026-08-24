@@ -43,7 +43,7 @@ Questi non entrano nel calcolo pesato: sono un cancello binario. Un candidato ch
 - `stato_civile` compatibile con `pref_stato_civile_accettato`
 - Coerenza su figli: `ha_figli`/`pref_accetta_figli` e `pref_desidera_figli_futuri` reciprocamente compatibili
 - Dealbreaker fisici dichiarati come esclusione tassativa (es. altezza minima, se impostata come dealbreaker e non come preferenza soft)
-- **Red flag critico:** se `flag_profilo_per_revisione_dati` è true (derivato dalle incoerenze statistiche tra Big Five ed EQ, o dal quadrante Timoroso/Disorganizzato — vedi `Ainima_Test_EQScore_v1.md` §4 e §10 di questo documento), il profilo va escluso dal matching automatico fino a revisione umana — non è un problema di compatibilità, è un problema di cura della persona, va gestito da un umano, non dall'algoritmo.
+- **Red flag critico:** se `flag_profilo_per_revisione_dati` è true (derivato da: ≥2 dimensioni con `confidenza_dimensione == 0.6` tra Big Five, EQ Score e Attaccamento — vedi Step 1-2 sotto e §10 di questo documento —, da `flag_trappola_fallita >= 1`, oppure dal quadrante Timoroso/Disorganizzato), il profilo va escluso dal matching automatico fino a revisione umana — non è un problema di compatibilità, è un problema di cura della persona, va gestito da un umano, non dall'algoritmo.
 
 ### Punto 3bis — La distanza non è più un limite fisso, ma un fattore personalizzato
 
@@ -135,11 +135,34 @@ meccanismo (`confidenza_dimensione` ridotta), non escluso.
 
 ### Soglia per revisione umana (data quality, non giudizio sull'utente)
 
+*(Correzione, seconda passata: la prima versione di questa correzione
+usava ancora "numero di dimensioni... >= 2" in modo ambiguo — non
+specificava se contare controlli falliti o dimensioni distinte. È la
+stessa ambiguità che ha causato il Bug A trovato da Claude Code in
+`_ricalcola_confidenza_e_flag()` nel Blocco C: due controlli incrociati
+diversi puntavano entrambi su Autoregolazione, gonfiando il conteggio.
+Ora la formula è esplicita su cosa si conta.)*
+
 ```
-SE numero di dimensioni (Big Five + EQ + Attaccamento, sommate) con
-confidenza_dimensione < 0.6 nello stesso profilo >= 2:
+insieme_confidenze = {
+    confidenza_big5_estroversione, confidenza_big5_gradevolezza,
+    confidenza_big5_coscienziosita, confidenza_big5_nevroticismo,
+    confidenza_big5_apertura,
+    confidenza_eq_autoconsapevolezza, confidenza_eq_autoregolazione,
+    confidenza_eq_empatia, confidenza_eq_responsabilita,
+    confidenza_attaccamento_ansia, confidenza_attaccamento_evitamento
+}   // 11 dimensioni distinte, sommando Big Five (5) + EQ Score (4) + Attaccamento (2)
+
+SE count(v == 0.6 per v in insieme_confidenze) >= 2:
     flag_profilo_per_revisione_dati = true
 ```
+
+**Punto chiave per l'implementazione:** questo è un conteggio su un
+insieme di 11 valori distinti, uno per dimensione — MAI un contatore
+incrementato una volta per ogni controllo che fallisce. Se più
+controlli diversi (es. i 2 controlli incrociati dell'EQ Score §4b che
+puntano entrambi su Autoregolazione) riducono la stessa dimensione,
+quella dimensione compare comunque una sola volta nell'insieme sopra.
 
 Non è un blocco del matching, e non genera mai una nota narrativa
 libera sul profilo (es. "persona poco coerente") — solo un punteggio
