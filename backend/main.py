@@ -39,7 +39,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/photos", StaticFiles(directory=os.path.join(BASE_DIR, "storage", "photos")), name="photos")
+# storage/ è in .gitignore (contenuto caricato dagli utenti, mai
+# committato) — su un clone pulito (es. Render) la cartella non esiste
+# affatto, e StaticFiles pretende che esista già al momento del mount,
+# altrimenti crasha subito all'avvio (trovato dal deploy reale su
+# Render, v. CLAUDE.md). Le sottocartelle profilo/partner_ideale restano
+# create lazy al primo upload (routers/profile.py), qui serve solo la
+# cartella base.
+PHOTOS_DIR = os.path.join(BASE_DIR, "storage", "photos")
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 
 app.include_router(auth.router)
 app.include_router(account.router)
