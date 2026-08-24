@@ -7,6 +7,12 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # Senza pin, Render ha usato Python 3.14 (bleeding-edge, uscito da
+      # poco) — sviluppato/testato tutto su 3.10, alcune dipendenze
+      # (es. psycopg2-binary) rischiano di non avere ancora wheel
+      # precompilate per 3.14. 3.12 è ampiamente supportata e stabile.
+      - key: PYTHON_VERSION
+        value: 3.12.7
       # Postgres (nessun DATABASE_URL: il codice legge 5 variabili
       # discrete, v. backend/db.py) — valori reali da inserire a mano.
       - key: PGHOST
