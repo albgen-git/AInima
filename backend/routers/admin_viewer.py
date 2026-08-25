@@ -13,6 +13,24 @@ from db import get_conn
 router = APIRouter(tags=["admin-viewer"])
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"))
 
+
+def foto_src(url: str | None) -> str:
+    """physical_profile.foto_*_url è un path relativo allo storage locale
+    (servito da /photos/, v. main.py) in locale, ma un URL R2 già assoluto
+    sul pool demo migrato su Render (v. scripts/seed_render_from_local.py)
+    — senza questa distinzione il template concatenava sempre "/photos/"
+    davanti, producendo un URL rotto (es. "/photos/https://pub-....r2.dev/
+    ...") che il browser risolve come path relativo al backend stesso e
+    che quindi va sempre in 404 per il pool migrato."""
+    if not url:
+        return "/photos/"  # mantiene il comportamento onerror esistente per foto assenti
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    return f"/photos/{url}"
+
+
+templates.env.filters["foto_src"] = foto_src
+
 ENUM_OPTIONS = {
     "genere": ["Maschile", "Femminile", "Non binario", "Altro"],
     "orientamento_sessuale": ["Eterosessuale", "Omosessuale", "Bisessuale", "Pansessuale", "Asessuale", "Altro"],

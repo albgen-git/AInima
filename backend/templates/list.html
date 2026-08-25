@@ -30,7 +30,7 @@
     <tr><th></th><th>ID</th><th>Nome</th><th>Genere</th><th>Stato</th></tr>
     {% for u in utenti %}
     <tr>
-      <td><img class="thumb" src="/photos/{{ u.foto_profilo_url }}" onerror="this.style.visibility='hidden'"></td>
+      <td><img class="thumb" src="{{ u.foto_profilo_url | foto_src }}" onerror="this.style.visibility='hidden'"></td>
       <td>{{ u.source_actor_id }}</td>
       <td><a href="/users/{{ u.user_id }}">{{ u.nome }} {{ u.cognome }}</a></td>
       <td>{{ u.genere }}</td>

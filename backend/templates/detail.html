@@ -28,12 +28,12 @@
 
   <div class="photos">
     <figure>
-      <img src="/photos/{{ tabelle.physical_profile.foto_profilo_url }}" onerror="this.src=''; this.alt='(nessuna foto)'">
+      <img src="{{ tabelle.physical_profile.foto_profilo_url | foto_src }}" onerror="this.src=''; this.alt='(nessuna foto)'">
       <figcaption>Foto profilo</figcaption>
     </figure>
     <figure>
       {% if tabelle.physical_profile.foto_partner_ideale_url %}
-      <img src="/photos/{{ tabelle.physical_profile.foto_partner_ideale_url }}">
+      <img src="{{ tabelle.physical_profile.foto_partner_ideale_url | foto_src }}">
       {% else %}
       <div style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;color:#666;border:1px dashed #444;border-radius:10px;">nessuna</div>
       {% endif %}
