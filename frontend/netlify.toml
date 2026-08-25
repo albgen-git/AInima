@@ -1,0 +1,33 @@
+# netlify.toml vive dentro frontend/ (non alla root del repo) — nel sito
+# Netlify va impostato "Base directory" = "frontend" nelle build settings,
+# altrimenti Netlify cerca questo file alla radice del repo e non lo trova.
+# Con questo file presente, i campi "Build command"/"Publish directory" del
+# form Netlify diventano ridondanti (questo file ha precedenza) — puoi
+# lasciarli vuoti nella UI.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Stessa versione già installata/usata in locale per questo progetto
+  # (v. CLAUDE.md) — pinnata per evitare che Netlify scelga un default
+  # diverso e comportamenti non riprodotti in locale (stesso principio già
+  # applicato al pin di PYTHON_VERSION per il backend su Render).
+  NODE_VERSION = "24.19.0"
+
+# Next.js Runtime ufficiale — richiesto per SSR/route handler/middleware di
+# Next 16 su Netlify (senza, Netlify tratterebbe la build come sito
+# puramente statico e le route server-side non funzionerebbero). Dichiarato
+# qui: Netlify lo scarica/installa da solo in build, non serve averlo tra
+# le devDependencies di package.json.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# NEXT_PUBLIC_API_BASE_URL (URL pubblico del backend FastAPI su Render, es.
+# quello del servizio "AInima" già deployato) NON è dichiarata qui di
+# proposito: è un valore specifico dell'ambiente di deploy, non un default
+# di progetto da versionare — va impostata come Environment Variable nel
+# pannello Netlify (Site configuration → Environment variables), stesso
+# trattamento già riservato ai segreti/URL specifici di ambiente in
+# render.yaml (sync: false).

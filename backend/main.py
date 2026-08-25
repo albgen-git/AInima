@@ -29,11 +29,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(title="Ainima API", description="Matchmaking matrimoniale — scheletro MVP")
 
-# Frontend Next.js (dev) gira su origin separata — necessario per le chiamate
-# fetch dal browser. TODO: restringere alle origin di staging/prod reali al deploy.
+# Frontend Next.js gira su origin separata — necessario per le chiamate
+# fetch dal browser. localhost:3000 per lo sviluppo locale, il dominio
+# Netlify per il frontend di collaudo deployato (v. CLAUDE.md).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "https://ainima.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
