@@ -1,0 +1,66 @@
+"""RF-28..RF-30b: report di analisi personale — endpoint di sola lettura
+del report più recente + feedback. La generazione automatica NON avviene
+qui: è agganciata ai 4 endpoint di submission dei test psicometrici (v.
+routers/psychometric.py, che chiama services/personal_report.py subito
+dopo aver committato il punteggio)."""
+
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException
+
+from db import get_conn
+from schemas.personal_report import PersonalReportFeedbackIn
+
+router = APIRouter(prefix="/users/{user_id}/personal-report", tags=["personal-report"])
+
+
+@router.get("")
+def ultimo_report(user_id: UUID):
+    """RF: recupera l'ultima versione del report generata per l'utente."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT report_id, contenuto_report, versione, data_generazione, email_inviata
+        FROM personal_report WHERE user_id = %s ORDER BY versione DESC LIMIT 1
+    """, (str(user_id),))
+    r = cur.fetchone()
+    conn.close()
+    if not r:
+        return {"pronto": False}
+    return {
+        "pronto": True,
+        "report_id": r["report_id"],
+        "contenuto_report": r["contenuto_report"],
+        "versione": r["versione"],
+        "data_generazione": r["data_generazione"],
+        "email_inviata": r["email_inviata"],
+    }
+
+
+@router.post("/{report_id}/feedback")
+def invia_feedback_report(user_id: UUID, report_id: UUID, payload: PersonalReportFeedbackIn):
+    """RF-30: valutazione a stelle (1-5, obbligatoria) + commento libero
+    opzionale. Un solo feedback per utente per versione di report — se
+    richiamato sulla stessa versione, aggiorna invece di duplicare."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM personal_report WHERE report_id = %s", (str(report_id),))
+    r = cur.fetchone()
+    if not r:
+        conn.close()
+        raise HTTPException(404, "Report non trovato")
+    if str(r["user_id"]) != str(user_id):
+        conn.close()
+        raise HTTPException(403, "Questo report non appartiene all'utente indicato")
+
+    cur.execute("""
+        INSERT INTO personal_report_feedback (report_id, user_id, valutazione_stelle, commento_libero)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (report_id, user_id) DO UPDATE SET
+            valutazione_stelle = EXCLUDED.valutazione_stelle,
+            commento_libero = EXCLUDED.commento_libero,
+            data_feedback = now()
+    """, (str(report_id), str(user_id), payload.valutazione_stelle, payload.commento_libero))
+    conn.commit()
+    conn.close()
+    return {"registrato": True}

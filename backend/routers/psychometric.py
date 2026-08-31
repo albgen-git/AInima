@@ -20,7 +20,7 @@ from schemas.psychometric import (
     SOTTODIMENSIONI_PROFILO_RELAZIONALE,
     REVERSE_ITEMS, REVERSE_ITEMS_ATTACCAMENTO, REVERSE_ITEMS_EQ, TRAPPOLA_RISPOSTA_ATTESA,
 )
-from services import llm_pipeline, text_embedding
+from services import llm_pipeline, personal_report, text_embedding
 
 router = APIRouter(prefix="/users/{user_id}", tags=["psychometric"])
 
@@ -39,6 +39,19 @@ CHAT_INTERVISTA_ATTIVA = False
 # (descrizione_di_se/descrizione_partner_ideale) continuano a salvarsi
 # normalmente: solo la trasformazione derivata è sospesa.
 GENERAZIONE_PROFILO_CANONICO_ATTIVA = False
+
+def _tenta_report_personale(conn, cur, user_id: UUID):
+    """RF-28/30b: dopo ogni submission di uno dei 4 test, prova a generare
+    il report di analisi personale (services/personal_report.py decide da
+    solo se tutti e 4 sono ormai completi — no-op altrimenti). Avvolto qui,
+    non dentro services/personal_report.py: un fallimento (LLM lento/non
+    disponibile) non deve mai far fallire la submission del test, che è
+    già stata committata prima di questa chiamata."""
+    try:
+        personal_report.genera_e_salva(conn, cur, user_id)
+    except Exception as e:
+        print(f"[ERRORE] generazione report personale per {user_id} fallita: {e}")
+
 
 DIMENSIONI = {
     "estroversione": "E", "gradevolezza": "A", "coscienziosita": "C",
@@ -325,6 +338,7 @@ def submit_big_five(user_id: UUID, payload: BigFiveSubmission):
     _verifica_trappola(cur, user_id, payload.risposte, "T1")
     _ricalcola_confidenza_e_flag(cur, user_id)
     conn.commit()
+    _tenta_report_personale(conn, cur, user_id)
     conn.close()
     return risultato
 
@@ -352,6 +366,7 @@ def submit_attaccamento(user_id: UUID, payload: AttaccamentoSubmission):
     _verifica_trappola(cur, user_id, payload.risposte, "T2")
     _ricalcola_confidenza_e_flag(cur, user_id)
     conn.commit()
+    _tenta_report_personale(conn, cur, user_id)
     conn.close()
     return risultato
 
@@ -397,6 +412,7 @@ def submit_eq(user_id: UUID, payload: EqSubmission):
     cur.execute("SELECT score_maturita_emotiva FROM psychometric_scores WHERE user_id = %s", (str(user_id),))
     risultato.score_maturita_emotiva = cur.fetchone()["score_maturita_emotiva"]
     conn.commit()
+    _tenta_report_personale(conn, cur, user_id)
     conn.close()
     return risultato
 
@@ -428,6 +444,7 @@ def submit_profilo_relazionale(user_id: UUID, payload: ProfiloRelazionaleSubmiss
         conn.close()
         raise HTTPException(404, "Utente non trovato")
     conn.commit()
+    _tenta_report_personale(conn, cur, user_id)
     conn.close()
     return risultato
 

@@ -463,6 +463,36 @@ CREATE TABLE IF NOT EXISTS email_change_requests (
 );
 
 -- ------------------------------------------------------------
+-- §7.11/§7.12 Report di analisi personale (RF-28..RF-30b) — prodotto
+-- dallo strato generativo isolato (services/llm_pipeline.py + services/
+-- personal_report.py, v. RNF-11): input SOLO punteggi già calcolati dai 4
+-- test psicometrici (mai risposte grezze) + narrativa libera RF-07b
+-- opzionale come colore. Il modulo generatore è in sola lettura sui
+-- punteggi — scrive esclusivamente qui, mai su psychometric_scores/
+-- matches/preferenze (enforcement architetturale, non solo di prompt).
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS personal_report (
+    report_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    contenuto_report       TEXT NOT NULL,
+    data_generazione        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    email_inviata            BOOLEAN NOT NULL DEFAULT FALSE,
+    data_invio_email          TIMESTAMPTZ,
+    versione                   INT NOT NULL -- incrementale per user_id, gestisce la rigenerazione RF-30b senza perdere lo storico
+);
+CREATE INDEX IF NOT EXISTS idx_personal_report_user ON personal_report(user_id, versione DESC);
+
+CREATE TABLE IF NOT EXISTS personal_report_feedback (
+    feedback_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id              UUID NOT NULL REFERENCES personal_report(report_id) ON DELETE CASCADE,
+    user_id                 UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    valutazione_stelle        SMALLINT NOT NULL CHECK (valutazione_stelle BETWEEN 1 AND 5),
+    commento_libero            TEXT,
+    data_feedback                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (report_id, user_id) -- un solo feedback per utente per versione di report (RF-30)
+);
+
+-- ------------------------------------------------------------
 -- Blocco E (v. CLAUDE.md — Ainima_Dashboard_Trigger_Email_v1.md,
 -- Ainima_Engagement_Periodico_v1_BOZZA.md §2-3): dashboard "mai vuota" +
 -- coda/raggruppamento email anti-invadenza. Il secondo documento è
