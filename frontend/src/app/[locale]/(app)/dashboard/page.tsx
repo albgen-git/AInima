@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card, PageShell } from "@/components/ui";
 import { AffinamentoCard } from "@/components/dashboard/AffinamentoCard";
 import { PillolaCard } from "@/components/dashboard/PillolaCard";
-import { authApi, type DashboardOut } from "@/lib/api";
+import { PersonalReportCard } from "@/components/dashboard/PersonalReportCard";
+import { authApi, personalReportApi, type DashboardOut, type PersonalReportOut } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
 import { Link } from "@/i18n/navigation";
@@ -13,13 +14,18 @@ import { Link } from "@/i18n/navigation";
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const [data, setData] = useState<DashboardOut | null>(null);
+  const [report, setReport] = useState<PersonalReportOut | null>(null);
   const { run, loading, error } = useAsyncAction(authApi.getDashboard);
+  const { run: runReport } = useAsyncAction(personalReportApi.getUltimoReport);
   const userId = getUserId();
 
   function ricarica() {
     if (!userId) return;
     run(userId).then((result) => {
       if (result) setData(result);
+    });
+    runReport(userId).then((result) => {
+      if (result) setReport(result);
     });
   }
 
@@ -90,6 +96,8 @@ export default function DashboardPage() {
           {userId && data.pillola_pendente && (
             <PillolaCard userId={userId} pillola={data.pillola_pendente} />
           )}
+
+          {report?.pronto && <PersonalReportCard report={report} />}
 
           {nienteDaMostrare && (
             <Card className="text-center">

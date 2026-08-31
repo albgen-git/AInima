@@ -262,7 +262,9 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     -- semplicemente escluse da matching_engine.load_pool().
     self_embedding_vector            DOUBLE PRECISION[],  -- v. nota pgvector in cima al file
     ideal_embedding_vector           DOUBLE PRECISION[],
-    report_prontezza_relazionale     TEXT,
+    -- report_prontezza_relazionale (TEXT) rimossa il 2026-08-31: era lo
+    -- stub legacy mai scritto da nessun codice, sostituito dalla tabella
+    -- dedicata personal_report (RF-28..RF-30b, §7.11 — v. CLAUDE.md).
     -- Test Profilo Relazionale (Blocco D — Ainima_Test_Profilo_Relazionale_v1.md):
     -- 13 sotto-dimensioni in 4 categorie, ciascuna con 2 item (Sé + Partner
     -- ideale), 26 item totali, nessun reverse. Sostituisce il confronto a

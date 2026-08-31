@@ -528,20 +528,3 @@ def invia_messaggio_chat(user_id: UUID, payload: ChatMessageIn):
     conn.commit()
     conn.close()
     return ChatMessageOut(testo=esito["testo"], conversazione_completata=esito["conversazione_completata"])
-
-
-@router.get("/report")
-def report_prontezza_relazionale(user_id: UUID):
-    """RF: 'La tua Prontezza Relazionale' — richiede il Prompt 5 via LLM.
-    Ritorna il testo salvato se già generato, altrimenti un placeholder."""
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT report_prontezza_relazionale FROM psychometric_scores WHERE user_id = %s", (str(user_id),))
-    row = cur.fetchone()
-    conn.close()
-    if row is None:
-        raise HTTPException(404, "Utente non trovato")
-    testo = row["report_prontezza_relazionale"]
-    if testo is None:
-        return {"pronto": False, "testo": None}
-    return {"pronto": True, "testo": testo}

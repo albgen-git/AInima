@@ -65,6 +65,13 @@ export interface OnboardingChecklist {
   carta_registrata: boolean;
   profilo_fisico_compilato: boolean;
   test_bigfive_completato: boolean;
+  // Mancavano dal tipo (trovato aggiungendo il messaggio "report inviato via
+  // email" in StepSummary.tsx) pur essendo già presenti nella risposta reale
+  // del backend e già renderizzati genericamente da Object.entries() qui —
+  // solo l'accesso tipizzato per chiave non avrebbe compilato prima di questo fix.
+  test_attaccamento_completato: boolean;
+  test_eq_completato: boolean;
+  test_profilo_relazionale_completato: boolean;
 }
 
 export interface OnboardingStatus {
@@ -85,6 +92,18 @@ export interface PillolaPendenteOut {
   titolo: string;
   testo: string;
 }
+
+// ── personal_report.py (RF-28..RF-30b) ─────────────────────────────────
+export type PersonalReportOut =
+  | { pronto: false }
+  | {
+      pronto: true;
+      report_id: string;
+      contenuto_report: string;
+      versione: number;
+      data_generazione: string;
+      email_inviata: boolean;
+    };
 
 export interface DashboardOut {
   stato_account: StatoAccount;

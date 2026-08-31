@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 
 from db import get_conn
 from schemas.personal_report import PersonalReportFeedbackIn
+from services import personal_report
 
 router = APIRouter(prefix="/users/{user_id}/personal-report", tags=["personal-report"])
 
@@ -35,6 +36,24 @@ def ultimo_report(user_id: UUID):
         "data_generazione": r["data_generazione"],
         "email_inviata": r["email_inviata"],
     }
+
+
+@router.post("/regenerate")
+def rigenera_report(user_id: UUID):
+    """RF-30b: rigenerazione su richiesta — usata dal trigger automatico
+    agganciato ai 4 endpoint di submission (v. routers/psychometric.py),
+    ma esposta anche qui per i casi in cui i 4 test erano già completi
+    PRIMA che questo meccanismo esistesse (nessun trigger sarebbe mai
+    scattato altrimenti). No-op (204) se i 4 test non sono ancora tutti
+    completi."""
+    conn = get_conn()
+    cur = conn.cursor()
+    if not personal_report.quattro_test_completi(cur, user_id):
+        conn.close()
+        raise HTTPException(409, "I 4 test psicometrici non sono ancora tutti completi")
+    testo = personal_report.genera_e_salva(conn, cur, user_id)
+    conn.close()
+    return {"generato": testo is not None}
 
 
 @router.post("/{report_id}/feedback")

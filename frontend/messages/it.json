@@ -305,7 +305,8 @@
         "test_eq_completato": "Test di intelligenza emotiva completato",
         "test_profilo_relazionale_completato": "Test del profilo relazionale completato"
       },
-      "goToDashboard": "Vai alla tua home"
+      "goToDashboard": "Vai alla tua home",
+      "reportEmailSent": "La tua analisi personalizzata \"La tua Prontezza Relazionale\" ti è stata inviata via email — la trovi anche nella tua home."
     }
   },
   "dashboard": {
@@ -337,6 +338,12 @@
     "pillola": {
       "title": "Una pillola per te",
       "cta": "Leggi"
+    },
+    "personalReport": {
+      "title": "La tua Prontezza Relazionale",
+      "subtitle": "La tua analisi personalizzata, generata dai test che hai completato.",
+      "expand": "Leggi l'analisi",
+      "collapse": "Riduci"
     }
   },
   "proposal": {

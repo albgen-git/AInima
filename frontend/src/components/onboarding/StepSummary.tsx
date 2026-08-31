@@ -23,6 +23,15 @@ export function StepSummary({ state, onBack }: StepProps) {
   }, [state.userId]);
 
   const isActive = status?.stato_account === "Attivo";
+  // RF-28/29: la generazione del report è agganciata al completamento dei
+  // 4 test psicometrici (non all'attivazione account) — stesso segnale già
+  // disponibile qui via checklist, nessuna chiamata aggiuntiva necessaria.
+  const quattroTestCompleti = !!status && (
+    status.checklist.test_bigfive_completato &&
+    status.checklist.test_attaccamento_completato &&
+    status.checklist.test_eq_completato &&
+    status.checklist.test_profilo_relazionale_completato
+  );
 
   return (
     <Card>
@@ -41,6 +50,10 @@ export function StepSummary({ state, onBack }: StepProps) {
           <p className="mt-2 text-sm text-slate">
             {isActive ? t("subtitleActive") : t("subtitlePending")}
           </p>
+
+          {quattroTestCompleti && (
+            <Alert tone="info" className="mt-4">{t("reportEmailSent")}</Alert>
+          )}
 
           <div className="mt-6 flex flex-col gap-2">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-navy">

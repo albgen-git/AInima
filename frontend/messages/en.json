@@ -305,7 +305,8 @@
         "test_eq_completato": "Emotional intelligence test completed",
         "test_profilo_relazionale_completato": "Relational profile test completed"
       },
-      "goToDashboard": "Go to your home"
+      "goToDashboard": "Go to your home",
+      "reportEmailSent": "Your personalized analysis \"Your Relationship Readiness\" has been sent to you by email — you'll also find it on your home page."
     }
   },
   "dashboard": {
@@ -337,6 +338,12 @@
     "pillola": {
       "title": "A little something for you",
       "cta": "Read"
+    },
+    "personalReport": {
+      "title": "Your Relationship Readiness",
+      "subtitle": "Your personalized analysis, generated from the tests you've completed.",
+      "expand": "Read the analysis",
+      "collapse": "Collapse"
     }
   },
   "proposal": {
