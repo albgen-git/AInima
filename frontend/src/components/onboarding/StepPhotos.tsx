@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent } from "react";
+import { ChangeEvent, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card } from "@/components/ui";
 import { profileApi } from "@/lib/api";
@@ -32,6 +32,16 @@ function PhotoUploadBlock({
   uploadedLabel: string;
   changeLabel: string;
 }) {
+  // Ref + click() programmatico invece del trucco <label> + pointer-events-none:
+  // quel pattern si affida all'attivazione nativa "click sulla label inoltra
+  // all'input associato", che su alcuni browser mobile (Safari iOS in
+  // particolare, caso reale segnalato dall'utente testando da cellulare) non
+  // sempre inoltra il tap quando l'elemento visibile ha pointer-events:none —
+  // il pulsante appariva presente ma non rispondeva al tocco. Un onClick
+  // esplicito su un bottone realmente cliccabile è il pattern standard, non
+  // soggetto a questa incoerenza cross-browser.
+  const inputRef = useRef<HTMLInputElement>(null);
+
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
@@ -45,32 +55,35 @@ function PhotoUploadBlock({
       </span>
       <p className="text-xs text-slate">{hint}</p>
 
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+        disabled={uploading}
+      />
+
       {uploadedUrl ? (
         <div className="flex items-center gap-3">
           <Badge tone="sage">{uploadedLabel}</Badge>
-          <label className="cursor-pointer text-sm text-navy underline">
+          <button
+            type="button"
+            className="cursor-pointer text-sm text-navy underline"
+            onClick={() => inputRef.current?.click()}
+          >
             {changeLabel}
-            <input type="file" accept="image/*" className="hidden" onChange={handleChange} />
-          </label>
+          </button>
         </div>
       ) : (
-        <label>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={uploading}
-            className="pointer-events-none"
-          >
-            {uploading ? uploadingLabel : uploadLabel}
-          </Button>
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleChange}
-            disabled={uploading}
-          />
-        </label>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? uploadingLabel : uploadLabel}
+        </Button>
       )}
       {error && <Alert tone="error">{error}</Alert>}
     </div>
