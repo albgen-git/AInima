@@ -10,3 +10,4 @@ numpy==2.2.6
 google-genai==2.18.1
 resend==2.36.0
 Jinja2==3.1.6
+boto3==1.43.79

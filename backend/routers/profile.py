@@ -3,7 +3,6 @@
 §7.2-7.3, §7.9."""
 
 import os
-import shutil
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -11,6 +10,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from db import get_conn
 from schemas.users import ProfileUpdate
 from services.content_moderation import get_content_moderation_provider
+from services.photo_storage import get_photo_storage
 
 router = APIRouter(prefix="/users/{user_id}", tags=["profile"])
 
@@ -117,27 +117,21 @@ def aggiorna_profilo(user_id: UUID, payload: ProfileUpdate):
     return {"aggiornato": True}
 
 
-def _salva_foto(user_id: UUID, sottocartella: str, file: UploadFile) -> str:
-    os.makedirs(os.path.join(STORAGE_DIR, sottocartella), exist_ok=True)
-    estensione = os.path.splitext(file.filename or "")[1] or ".jpg"
-    nome_file = f"{user_id}{estensione}"
-    percorso_assoluto = os.path.join(STORAGE_DIR, sottocartella, nome_file)
-    with open(percorso_assoluto, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-    return f"{sottocartella}/{nome_file}"
-
-
-def _modera_foto(cur, user_id: UUID, tipo_immagine: str, percorso_relativo: str, percorso_assoluto: str) -> str:
+def _modera_foto(cur, user_id: UUID, tipo_immagine: str, riferimento_immagine: str) -> str:
     """RF-06b: scansiona la foto appena caricata, registra l'esito in
     content_moderation_log e — solo se effettivamente 'Sospetta' (non se il
     provider è assente/fallisce, v. services/content_moderation.py) —
     porta l'account in 'In attesa - verifica moderazione' (RF-09), bloccato
-    finché uno staff non approva dalla coda (RF-25c). Ritorna l'esito."""
-    risultato = get_content_moderation_provider().analizza(percorso_assoluto)
+    finché uno staff non approva dalla coda (RF-25c). Ritorna l'esito.
+    `riferimento_immagine` è lo stesso valore già ritornato da
+    PhotoStorage.salva() (path relativo su storage locale, o URL assoluto
+    su R2) — non un path assoluto sul filesystem del processo, che con
+    R2 non esiste più."""
+    risultato = get_content_moderation_provider().analizza(riferimento_immagine)
     cur.execute("""
         INSERT INTO content_moderation_log (user_id, tipo_immagine, immagine_url, esito_automatico, score_confidenza)
         VALUES (%s, %s, %s, %s, %s)
-    """, (str(user_id), tipo_immagine, percorso_relativo, risultato.esito, risultato.score_confidenza))
+    """, (str(user_id), tipo_immagine, riferimento_immagine, risultato.esito, risultato.score_confidenza))
     if risultato.esito == "Sospetta":
         cur.execute("""
             UPDATE users SET stato_account = 'In attesa - verifica moderazione'
@@ -148,21 +142,21 @@ def _modera_foto(cur, user_id: UUID, tipo_immagine: str, percorso_relativo: str,
 
 @router.post("/profile-photo")
 def carica_foto_profilo(user_id: UUID, file: UploadFile = File(...)):
-    """Salva il file + moderazione automatica (RF-06b). NON calcola
-    l'embedding visivo (richiede un modello di face-embedding tipo ArcFace,
-    non installato in questo ambiente — v. CLAUDE.md sulle limitazioni di
-    pgvector/DeepFace). embedding_visivo_profilo resta NULL finché non gira
-    una pipeline offline dedicata."""
+    """Salva il file (su R2 se configurato, altrimenti su disco locale —
+    v. services/photo_storage.py) + moderazione automatica (RF-06b). NON
+    calcola l'embedding visivo (richiede un modello di face-embedding tipo
+    ArcFace, non installato in questo ambiente — v. CLAUDE.md sulle
+    limitazioni di pgvector/DeepFace). embedding_visivo_profilo resta NULL
+    finché non gira una pipeline offline dedicata."""
     conn = get_conn()
     cur = conn.cursor()
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
-    percorso = _salva_foto(user_id, "profilo", file)
+    percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "profilo", file)
     cur.execute("UPDATE physical_profile SET foto_profilo_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
-    esito_moderazione = _modera_foto(cur, user_id, "Foto profilo", percorso,
-                                      os.path.join(STORAGE_DIR, percorso))
+    esito_moderazione = _modera_foto(cur, user_id, "Foto profilo", percorso)
     conn.commit()
     conn.close()
     return {"foto_profilo_url": percorso, "embedding_calcolato": False, "esito_moderazione": esito_moderazione}
@@ -178,11 +172,10 @@ def carica_foto_partner_ideale(user_id: UUID, file: UploadFile = File(...)):
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
-    percorso = _salva_foto(user_id, "partner_ideale", file)
+    percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "partner_ideale", file)
     cur.execute("UPDATE physical_profile SET foto_partner_ideale_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
-    esito_moderazione = _modera_foto(cur, user_id, "Foto partner ideale", percorso,
-                                      os.path.join(STORAGE_DIR, percorso))
+    esito_moderazione = _modera_foto(cur, user_id, "Foto partner ideale", percorso)
     conn.commit()
     conn.close()
     return {"foto_partner_ideale_url": percorso, "embedding_calcolato": False, "esito_moderazione": esito_moderazione}

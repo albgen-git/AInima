@@ -24,7 +24,13 @@
 </head>
 <body>
   <a class="back" href="/">&larr; Torna alla lista</a>
-  <h1>{{ u.nome }} {{ u.cognome }} <span style="color:#777; font-weight:400; font-size:15px;">(actor #{{ u.source_actor_id }})</span></h1>
+  <h1>{{ u.nome }} {{ u.cognome }}
+    {% if u.source_actor_id is not none %}
+    <span style="color:#777; font-weight:400; font-size:15px;">(actor #{{ u.source_actor_id }})</span>
+    {% else %}
+    <span style="color:#777; font-weight:400; font-size:13px; font-family:monospace;">{{ u.user_id }}</span>
+    {% endif %}
+  </h1>
 
   <div class="photos">
     <figure>

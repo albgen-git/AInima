@@ -24,12 +24,18 @@ class RisultatoModerazione:
 
 class ContentModerationProvider(ABC):
     @abstractmethod
-    def analizza(self, percorso_assoluto: str) -> RisultatoModerazione:
+    def analizza(self, riferimento_immagine: str) -> RisultatoModerazione:
+        """`riferimento_immagine`: path relativo su storage locale o URL
+        assoluto su R2 (v. services/photo_storage.py) — non più garantito
+        un path assoluto sul filesystem del processo, dato che il piano
+        gratuito Render ha disco effimero (v. CLAUDE.md). Un provider reale
+        (AWS Rekognition/GCV SafeSearch/ecc.) leggerà i byte dal file
+        locale o scaricherà dall'URL a seconda del caso."""
         ...
 
 
 class NullContentModerationProvider(ContentModerationProvider):
-    def analizza(self, percorso_assoluto: str) -> RisultatoModerazione:
+    def analizza(self, riferimento_immagine: str) -> RisultatoModerazione:
         return RisultatoModerazione(esito="In errore", score_confidenza=None)
 
 
