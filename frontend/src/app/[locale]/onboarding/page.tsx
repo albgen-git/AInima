@@ -72,37 +72,46 @@ export default function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [state, setState] = useState<WizardState>(initialWizardState);
 
+  // Estratta perché serve in DUE momenti, non solo al mount: (1) chi arriva
+  // con uno user_id già in localStorage (refresh/ritorno diretto), (2) chi
+  // ha appena verificato l'OTP in QUESTA sessione (v. StepOtpVerify sotto).
+  // Bug reale trovato dal vivo (segnalato dall'utente, v. CLAUDE.md): il
+  // punto (2) prima chiamava solo onNext() dopo la verifica, avanzando
+  // sempre al passo "basicInfo" a prescindere da quanto l'account avesse
+  // già completato — un utente di ritorno (logout + nuovo login via email
+  // OTP) si ritrovava daccapo invece che in dashboard o al passo giusto.
+  async function risolviStepDaStato(userId: string) {
+    try {
+      const status = await authApi.getOnboardingStatus(userId);
+      // "Attivo" (i 6 campi del gate RF-09) non implica che narrativa/liste
+      // siano completi — non fanno parte del gate per scelta di prodotto
+      // (v. CLAUDE.md). Reindirizzare qui SOLO in base a stato_account
+      // mandava in dashboard un account già attivo ma con questi due step
+      // ancora vuoti, saltandoli per sempre al primo reload. Ora si guarda
+      // anche primo_passo_incompleto: se punta ancora a uno step reale
+      // (< STEP_SUMMARY), lo si mostra comunque prima del redirect.
+      const STEP_SUMMARY_INDEX = STEP_KEYS.length - 1;
+      const nienteDaCompletare = status.primo_passo_incompleto >= STEP_SUMMARY_INDEX;
+      if (status.stato_account === "Attivo" && nienteDaCompletare) {
+        router.replace("/dashboard");
+        return;
+      }
+      setState((s) => ({ ...s, userId }));
+      setStepIndex(Math.max(status.primo_passo_incompleto, STEP_BASIC_INFO_INDEX));
+    } catch {
+      // user_id non più valido (es. DB di test ripulito) — meglio ripartire
+      // da zero che restare bloccati su uno stato invalido.
+      clearUserId();
+    }
+  }
+
   useEffect(() => {
     // Legge localStorage (sistema esterno, non disponibile in SSR) — deve
     // restare in un effect per evitare mismatch di idratazione, anche se
     // il render iniziale mostrerà per un istante lo step email.
     const existingId = getUserId();
     if (!existingId) return;
-
-    authApi
-      .getOnboardingStatus(existingId)
-      .then((status) => {
-        // "Attivo" (i 6 campi del gate RF-09) non implica che narrativa/liste
-        // siano completi — non fanno parte del gate per scelta di prodotto
-        // (v. CLAUDE.md). Reindirizzare qui SOLO in base a stato_account
-        // mandava in dashboard un account già attivo ma con questi due step
-        // ancora vuoti, saltandoli per sempre al primo reload. Ora si guarda
-        // anche primo_passo_incompleto: se punta ancora a uno step reale
-        // (< STEP_SUMMARY), lo si mostra comunque prima del redirect.
-        const STEP_SUMMARY_INDEX = STEP_KEYS.length - 1;
-        const nienteDaCompletare = status.primo_passo_incompleto >= STEP_SUMMARY_INDEX;
-        if (status.stato_account === "Attivo" && nienteDaCompletare) {
-          router.replace("/dashboard");
-          return;
-        }
-        setState((s) => ({ ...s, userId: existingId }));
-        setStepIndex(Math.max(status.primo_passo_incompleto, STEP_BASIC_INFO_INDEX));
-      })
-      .catch(() => {
-        // user_id salvato non più valido (es. DB di test ripulito) —
-        // meglio ripartire da zero che restare bloccati su uno stato invalido.
-        clearUserId();
-      });
+    risolviStepDaStato(existingId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -129,7 +138,7 @@ export default function OnboardingPage() {
         <ProgressSteps steps={steps} currentIndex={stepIndex} />
         <div className="mt-8">
           {stepIndex === 0 && <StepEmail {...commonProps} />}
-          {stepIndex === 1 && <StepOtpVerify {...commonProps} />}
+          {stepIndex === 1 && <StepOtpVerify {...commonProps} onVerified={risolviStepDaStato} />}
           {stepIndex === 2 && <StepBasicInfo {...commonProps} />}
           {stepIndex === 3 && <StepSensitiveConsent {...commonProps} />}
           {stepIndex === 4 && <StepOrientation {...commonProps} />}

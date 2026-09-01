@@ -8,7 +8,15 @@ import { setSessionToken, setUserId } from "@/lib/session";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import type { StepProps } from "@/lib/wizard/types";
 
-export function StepOtpVerify({ state, update, onNext, onBack }: StepProps) {
+interface StepOtpVerifyProps extends StepProps {
+  /** Al posto di onNext() semplice: risolve lo step giusto in base allo
+   * stato reale dell'account (RF-09) — un utente di ritorno con
+   * onboarding già completo deve atterrare in dashboard, non ripartire
+   * dal passo "basicInfo" come se fosse nuovo (bug reale, v. CLAUDE.md). */
+  onVerified: (userId: string) => Promise<void>;
+}
+
+export function StepOtpVerify({ state, update, onBack, onVerified }: StepOtpVerifyProps) {
   const t = useTranslations("onboarding.otpVerify");
   const tCommon = useTranslations("common");
   const [codice, setCodice] = useState("");
@@ -22,7 +30,7 @@ export function StepOtpVerify({ state, update, onNext, onBack }: StepProps) {
       setUserId(result.user_id);
       setSessionToken(result.token);
       update("userId", result.user_id);
-      onNext();
+      await onVerified(result.user_id);
     }
   }
 
