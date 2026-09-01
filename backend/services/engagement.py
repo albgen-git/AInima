@@ -14,6 +14,7 @@ in system_config.giorno_invio_email_engagement — la funzione stessa non
 impone il giorno, solo il tetto di frequenza per utente (§2.3)."""
 
 import json
+import os
 
 from services import email_provider
 
@@ -243,12 +244,17 @@ def invia_email_engagement_batch(conn, dry_run=True):
             titolo_pillola = row["titolo"] if row else None
 
         oggetto = _oggetto_email(ha_domande, bool(pillole_voci), titolo_pillola)
+        # "ainima.local" era un placeholder mai sostituito con il dominio
+        # reale (trovato testando dal vivo un invio reale, v. CLAUDE.md) —
+        # FRONTEND_BASE_URL configurabile per un eventuale dominio custom
+        # futuro, con il default già puntato al frontend Netlify attuale.
+        frontend_url = os.environ.get("FRONTEND_BASE_URL", "https://ainima.netlify.app")
         corpo_html = (
             f"<p>Ciao,</p><p>c'è qualcosa di nuovo per te su Ainima — "
             f"{'alcune domande per affinare il tuo profilo' if ha_domande else ''}"
             f"{' e ' if ha_domande and pillole_voci else ''}"
             f"{'una pillola pensata per te' if pillole_voci else ''}.</p>"
-            f"<p><a href=\"https://ainima.local/dashboard\">Vai alla tua dashboard</a></p>"
+            f"<p><a href=\"{frontend_url}/it/dashboard\">Vai alla tua dashboard</a></p>"
         )
 
         if not dry_run:
