@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Alert, Badge, Button, Card, PageShell, Spinner } from "@/components/ui";
+import { Alert, Badge, Button, Card, CompatibilityBar, PageShell, Spinner } from "@/components/ui";
 import {
   contactsApi,
   matchingApi,
@@ -150,24 +150,14 @@ export default function ProposalPage() {
 
       <Card className="mt-6">
         <h2 className="font-display text-xl text-navy">{t("analysisTitle")}</h2>
-        {!analysis && <p className="mt-3 text-sm text-slate">{t("analysisLoading")}</p>}
-        {analysis && !analysis.pronta && (
-          <p className="mt-3 text-sm text-slate">{t("analysisNotReady")}</p>
-        )}
-        {analysis?.pronta && analysis.analisi && (
-          <div className="mt-4">
-            <div className="h-2 w-full rounded-full bg-border">
-              <div
-                className="h-2 rounded-full bg-gold transition-all"
-                style={{ width: `${Math.round(analysis.analisi.punteggio_narrativo_strutturato * 100)}%` }}
-              />
-            </div>
-            <p className="mt-2 text-sm text-slate">{t("narrativeScoreHint")}</p>
-            {analysis.analisi.spunto_di_attenzione && (
-              <p className="mt-3 text-sm text-slate">{analysis.analisi.spunto_di_attenzione}</p>
-            )}
-          </div>
-        )}
+        <div className="mt-3">
+          <CompatibilityBar
+            analysis={analysis}
+            loadingText={t("analysisLoading")}
+            notReadyText={t("analysisNotReady")}
+            hintText={t("narrativeScoreHint")}
+          />
+        </div>
       </Card>
 
       {isConfirmed && (

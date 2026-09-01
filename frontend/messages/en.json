@@ -412,7 +412,11 @@
     "subtitle": "Successfully concluded matches.",
     "empty": "You don't have any contacts here yet. Once a match is confirmed by both parties, it'll show up on this page.",
     "matchedOn": "Match confirmed on {date}",
-    "downloadVcard": "Download vCard"
+    "downloadVcard": "Download vCard",
+    "analysisTitle": "Why you were matched",
+    "analysisLoading": "Loading…",
+    "analysisNotReady": "Analysis not yet available for this couple.",
+    "narrativeScoreHint": "Coherence between your values and your relationship expectations."
   },
   "profileEdit": {
     "title": "Your profile",

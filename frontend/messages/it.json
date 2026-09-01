@@ -412,7 +412,11 @@
     "subtitle": "Gli abbinamenti conclusi con successo.",
     "empty": "Non hai ancora nessun contatto qui. Quando un abbinamento verrà confermato da entrambe le parti, lo troverai in questa pagina.",
     "matchedOn": "Abbinamento confermato il {date}",
-    "downloadVcard": "Scarica vCard"
+    "downloadVcard": "Scarica vCard",
+    "analysisTitle": "Perché siete stati abbinati",
+    "analysisLoading": "Caricamento…",
+    "analysisNotReady": "Analisi non ancora disponibile per questa coppia.",
+    "narrativeScoreHint": "Coerenza tra i vostri valori e le vostre aspettative di coppia."
   },
   "profileEdit": {
     "title": "Il tuo profilo",

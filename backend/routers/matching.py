@@ -137,6 +137,35 @@ SPUNTO_ATTENZIONE_COSTRUTTIVO = (
 )
 
 
+def _calcola_analisi(cur, user_id: str, altro_id: str, flag_rifiuto: bool, flag_asimmetria: bool):
+    """Nucleo condiviso tra /proposal/analysis (proposta attiva corrente)
+    e /matches/{match_id}/analysis (qualunque match, incluso Rubrica) —
+    stessa aritmetica sul Test Profilo Relazionale, stessa riformulazione
+    del risultato in un unico spunto costruttivo generico (mai quale dei
+    due flag, mai un dettaglio specifico — l'anonimato/la delicatezza del
+    dato restano garantiti in entrambi i punti di chiamata)."""
+    cur.execute(f"""
+        SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
+        FROM psychometric_scores WHERE user_id IN (%s, %s)
+    """, (user_id, altro_id))
+    # CASE WHEN ... (o un valore letto da una tabella con FK) può tornare
+    # come stringa (non UUID) da psycopg2 — normalizza entrambi i lati a
+    # str prima di confrontare (v. bug trovato in test manuale: confronto
+    # UUID/str falliva silenziosamente).
+    righe = {str(r["user_id"]): r for r in cur.fetchall()}
+
+    for uid in (user_id, altro_id):
+        if uid not in righe or any(righe[uid][c] is None for c in CAMPI_PROFILO_RELAZIONALE):
+            return {"pronta": False, "analisi": None}
+
+    punteggio, _ = matching_engine.punteggio_narrativo_strutturato(dict(righe[user_id]), dict(righe[altro_id]))
+    spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (flag_rifiuto or flag_asimmetria) else None
+    return {"pronta": True, "analisi": {
+        "punteggio_narrativo_strutturato": punteggio,
+        "spunto_di_attenzione": spunto,
+    }}
+
+
 @router.get("/users/{user_id}/proposal/analysis")
 def analisi_proposta_corrente(user_id: UUID):
     """Coerenza narrativa della proposta del ciclo corrente — aritmetica
@@ -149,21 +178,21 @@ def analisi_proposta_corrente(user_id: UUID):
     GET /users/{id}/proposal) e restituisce solo il punteggio —
     l'anonimato della proposta (RF-12) resta intatto anche qui.
 
-    flag_rifiuto_esplicito/flag_asimmetria_narrativa (Blocco D — v.
-    CLAUDE.md) NON vengono ricalcolati qui: sono già persistiti su questo
-    stesso match al momento della sua creazione (matching_engine.
-    run_monthly_batch), quindi vengono letti da lì — riflettono i dati usati
-    per QUESTA proposta, non un ricalcolo live che potrebbe divergere se nel
-    frattempo uno dei due ha modificato il proprio profilo. Se uno dei due è
-    true, l'utente vede un unico spunto costruttivo generico (mai quale dei
-    due flag, mai un dettaglio specifico)."""
+    Include anche 'Confermato' (bug reale trovato dal vivo, v. CLAUDE.md):
+    prima si fermava a 'Proposto'/'Accettato_*', quindi un utente che
+    restava sulla schermata Proposta dopo aver pagato vedeva la card
+    dell'analisi bloccata su "caricamento" per sempre (la chiamata 404ava
+    e il frontend la ignorava silenziosamente) — stesso motivo per cui
+    GET /users/{id}/proposal era già stato esteso in una sessione
+    precedente."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
         SELECT CASE WHEN m.user_a_id = %s THEN m.user_b_id ELSE m.user_a_id END AS altro_id,
                m.flag_rifiuto_esplicito, m.flag_asimmetria_narrativa
         FROM matches m
-        WHERE (m.user_a_id = %s OR m.user_b_id = %s) AND m.stato IN ('Proposto', 'Accettato_A', 'Accettato_B')
+        WHERE (m.user_a_id = %s OR m.user_b_id = %s)
+          AND m.stato IN ('Proposto', 'Accettato_A', 'Accettato_B', 'Confermato')
         ORDER BY m.data_proposta DESC LIMIT 1
     """, (str(user_id), str(user_id), str(user_id)))
     m = cur.fetchone()
@@ -171,29 +200,40 @@ def analisi_proposta_corrente(user_id: UUID):
         conn.close()
         raise HTTPException(404, "Nessuna proposta attiva per questo utente")
 
-    altro_id = str(m["altro_id"])
-    cur.execute(f"""
-        SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
-        FROM psychometric_scores WHERE user_id IN (%s, %s)
-    """, (str(user_id), altro_id))
-    # CASE WHEN ... restituisce il tipo come stringa (non UUID) da psycopg2 —
-    # normalizza entrambi i lati a str prima di confrontare (v. bug trovato
-    # in test manuale: confronto UUID/str falliva silenziosamente).
-    righe = {str(r["user_id"]): r for r in cur.fetchall()}
+    risultato = _calcola_analisi(cur, str(user_id), str(m["altro_id"]),
+                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
     conn.close()
+    return risultato
 
-    for uid in (str(user_id), altro_id):
-        if uid not in righe or any(righe[uid][c] is None for c in CAMPI_PROFILO_RELAZIONALE):
-            return {"pronta": False, "analisi": None}
 
-    punteggio, _ = matching_engine.punteggio_narrativo_strutturato(
-        dict(righe[str(user_id)]), dict(righe[altro_id]))
+@router.get("/users/{user_id}/matches/{match_id}/analysis")
+def analisi_match(user_id: UUID, match_id: UUID):
+    """Come /proposal/analysis ma per UN match specifico invece che "la
+    proposta attiva corrente" — usato dalla Rubrica (RF-22b), dove più
+    abbinamenti conclusi possono coesistere nel tempo. Nessun vincolo di
+    stato: funziona per qualunque match, non solo quelli ancora aperti,
+    dato che qui il chiamante fornisce già il match_id (l'anonimato RF-12
+    non è in gioco — l'utente ha già il contatto reale se è arrivato in
+    Rubrica)."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT CASE WHEN user_a_id = %s THEN user_b_id ELSE user_a_id END AS altro_id,
+               user_a_id, user_b_id, flag_rifiuto_esplicito, flag_asimmetria_narrativa
+        FROM matches WHERE match_id = %s
+    """, (str(user_id), str(match_id)))
+    m = cur.fetchone()
+    if not m:
+        conn.close()
+        raise HTTPException(404, "Match non trovato")
+    if str(user_id) not in (str(m["user_a_id"]), str(m["user_b_id"])):
+        conn.close()
+        raise HTTPException(403, "Questo match non appartiene all'utente indicato")
 
-    spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (m["flag_rifiuto_esplicito"] or m["flag_asimmetria_narrativa"]) else None
-    return {"pronta": True, "analisi": {
-        "punteggio_narrativo_strutturato": punteggio,
-        "spunto_di_attenzione": spunto,
-    }}
+    risultato = _calcola_analisi(cur, str(user_id), str(m["altro_id"]),
+                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
+    conn.close()
+    return risultato
 
 
 @router.post("/users/{user_id}/matches/{match_id}/decision")

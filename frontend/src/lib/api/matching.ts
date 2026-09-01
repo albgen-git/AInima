@@ -15,6 +15,10 @@ export const matchingApi = {
   getProposalAnalysis: (userId: string) =>
     apiClient.get<ProposalAnalysisOut>(`/users/${userId}/proposal/analysis`),
 
+  /** Come sopra ma per UN match specifico (qualunque stato) — usata dalla Rubrica, dove più abbinamenti coesistono. */
+  getMatchAnalysis: (userId: string, matchId: string) =>
+    apiClient.get<ProposalAnalysisOut>(`/users/${userId}/matches/${matchId}/analysis`),
+
   decideMatch: (userId: string, matchId: string, payload: MatchDecision) =>
     apiClient.post<MatchDecisionResponse>(
       `/users/${userId}/matches/${matchId}/decision`,
