@@ -26,6 +26,12 @@
     "profile": "Profile",
     "preferences": "Criteria"
   },
+  "userMenu": {
+    "openMenu": "Open user menu",
+    "editProfile": "Edit profile",
+    "photos": "Your photos",
+    "logout": "Log out"
+  },
   "onboarding": {
     "steps": {
       "email": "Email",
@@ -344,6 +350,18 @@
       "subtitle": "Your personalized analysis, generated from the tests you've completed.",
       "expand": "Read the analysis",
       "collapse": "Collapse"
+    },
+    "photos": {
+      "title": "Your photos",
+      "subtitle": "Replace them any time — new photos go through automatic review again.",
+      "profileLabel": "Profile photo",
+      "idealLabel": "Ideal partner",
+      "noPhoto": "No photo",
+      "noIdealPhoto": "Not uploaded — optional",
+      "upload": "Upload photo",
+      "change": "Replace",
+      "uploading": "Uploading…",
+      "pendingModeration": "The new photo is under review — the previous one stays visible until it's approved."
     }
   },
   "proposal": {

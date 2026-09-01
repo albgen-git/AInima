@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
+import { UserMenu } from "./UserMenu";
 
 const TABS = [
   { href: "/dashboard", key: "dashboard" },
@@ -22,23 +23,26 @@ export function AppNav() {
         <Link href="/dashboard" className="font-display text-lg text-navy">
           Ainima
         </Link>
-        <nav className="flex gap-1">
-          {TABS.map((tab) => {
-            const active = pathname === tab.href;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
-                  active ? "bg-navy text-ivory-light" : "text-slate hover:bg-border"
-                )}
-              >
-                {t(tab.key)}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex items-center gap-3">
+          <nav className="flex gap-1">
+            {TABS.map((tab) => {
+              const active = pathname === tab.href;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+                    active ? "bg-navy text-ivory-light" : "text-slate hover:bg-border"
+                  )}
+                >
+                  {t(tab.key)}
+                </Link>
+              );
+            })}
+          </nav>
+          <UserMenu />
+        </div>
       </div>
     </header>
   );

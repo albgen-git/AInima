@@ -13,7 +13,16 @@ export { feedbackApi } from "./feedback";
 export { engagementApi } from "./engagement";
 export { personalReportApi } from "./personalReport";
 
-/** URL assoluto per una foto servita da /photos/... (v. backend/main.py StaticFiles mount). */
-export function photoUrl(relativePath: string): string {
-  return apiAssetUrl(`/photos/${relativePath}`);
+/**
+ * URL assoluto per mostrare una foto. `foto_profilo_url`/`foto_partner_ideale_url`
+ * sono un path relativo allo storage locale del backend (servito da /photos/,
+ * v. backend/main.py) per i profili caricati prima della migrazione a R2, ma
+ * un URL già assoluto (https://pub-....r2.dev/...) per quelli su R2 (v.
+ * backend/services/photo_storage.py) — senza questa distinzione si otterrebbe
+ * un URL rotto tipo "/photos/https://pub-..." (stesso bug già trovato e
+ * corretto nel viewer admin lato backend, v. CLAUDE.md).
+ */
+export function photoUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return apiAssetUrl(`/photos/${path}`);
 }

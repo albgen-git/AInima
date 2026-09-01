@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, PageShell } from "@/components/ui";
 import { AffinamentoCard } from "@/components/dashboard/AffinamentoCard";
 import { PillolaCard } from "@/components/dashboard/PillolaCard";
 import { PersonalReportCard } from "@/components/dashboard/PersonalReportCard";
+import { PhotoSection } from "@/components/dashboard/PhotoSection";
 import { authApi, personalReportApi, type DashboardOut, type PersonalReportOut } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
@@ -104,6 +105,8 @@ export default function DashboardPage() {
               <p className="text-sm text-slate">{t("nothingPending")}</p>
             </Card>
           )}
+
+          {userId && <PhotoSection userId={userId} />}
 
           <div className="grid grid-cols-2 gap-4">
             <Link href="/rubrica">

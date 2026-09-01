@@ -195,14 +195,20 @@ export interface ProfileUpdate {
   lingue_parlate?: string[] | null;
 }
 
+/** RF-06b: esito della scansione automatica al momento dell'upload — 'Sospetta'
+ * è l'unico caso che blocca l'account in revisione (v. CLAUDE.md, RNF-09). */
+export type EsitoModerazione = "OK" | "Sospetta" | "In errore";
+
 export interface ProfilePhotoResponse {
   foto_profilo_url: string;
   embedding_calcolato: false;
+  esito_moderazione: EsitoModerazione;
 }
 
 export interface IdealPartnerPhotoResponse {
   foto_partner_ideale_url: string;
   embedding_calcolato: false;
+  esito_moderazione: EsitoModerazione;
 }
 
 // ── preferences.py ─────────────────────────────────────────────────────

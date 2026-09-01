@@ -26,6 +26,12 @@
     "profile": "Profilo",
     "preferences": "Criteri"
   },
+  "userMenu": {
+    "openMenu": "Apri il menu utente",
+    "editProfile": "Modifica profilo",
+    "photos": "Le tue foto",
+    "logout": "Esci"
+  },
   "onboarding": {
     "steps": {
       "email": "Email",
@@ -344,6 +350,18 @@
       "subtitle": "La tua analisi personalizzata, generata dai test che hai completato.",
       "expand": "Leggi l'analisi",
       "collapse": "Riduci"
+    },
+    "photos": {
+      "title": "Le tue foto",
+      "subtitle": "Sostituiscile in qualsiasi momento — le nuove foto passano di nuovo dalla verifica automatica.",
+      "profileLabel": "Foto profilo",
+      "idealLabel": "Partner ideale",
+      "noPhoto": "Nessuna foto",
+      "noIdealPhoto": "Non caricata — facoltativa",
+      "upload": "Carica foto",
+      "change": "Sostituisci",
+      "uploading": "Caricamento…",
+      "pendingModeration": "La nuova foto è in verifica — resterà visibile quella precedente finché non viene approvata."
     }
   },
   "proposal": {
