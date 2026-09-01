@@ -434,15 +434,28 @@ def load_pool(cur):
     centroide = tag_matching.get_centroide(cur)
     centroide_np = np.array(centroide) if centroide is not None else None
 
+    # Bug reale di memoria trovato dal vivo (v. CLAUDE.md): _risolvi() veniva
+    # chiamata 4 volte per utente (una per campo tag) e ri-centrava OGNI tag
+    # da zero ad ogni chiamata — con un vocabolario di tag condiviso e
+    # piccolo (~80-90 unici su ~1000 utenti), lo stesso tag veniva
+    # ricalcolato migliaia di volte. Su Render (piano gratuito, 512MB)
+    # questo da solo allocava ~880MB (28.8 milioni di float, misurato con
+    # tracemalloc) e faceva andare il processo in OOM ad ogni chiamata di
+    # find_best_match/run_monthly_batch. Centrato UNA sola volta per tag
+    # unico qui sotto, poi solo un lookup — stesso risultato numerico,
+    # ~100x meno allocazioni.
+    embedding_per_tag_centrato = embedding_per_tag
+    if centroide_np is not None:
+        embedding_per_tag_centrato = {
+            t: (np.array(v) - centroide_np).tolist() for t, v in embedding_per_tag.items()
+        }
+
     def _risolvi(tags):
         # un tag non ancora in cache (dato non ancora elaborato) viene
         # semplicemente escluso da questo confronto, invece di far fallire
         # l'intero calcolo — difensivo, non dovrebbe succedere se
         # l'endpoint di salvataggio ha già calcolato l'embedding.
-        grezzi = [embedding_per_tag[t] for t in (tags or []) if t in embedding_per_tag]
-        if centroide_np is None:
-            return grezzi
-        return [(np.array(v) - centroide_np).tolist() for v in grezzi]
+        return [embedding_per_tag_centrato[t] for t in (tags or []) if t in embedding_per_tag_centrato]
 
     pool = {}
     for r in righe:
