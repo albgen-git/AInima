@@ -98,7 +98,7 @@ export default function DashboardPage() {
             <PillolaCard userId={userId} pillola={data.pillola_pendente} />
           )}
 
-          {report?.pronto && <PersonalReportCard report={report} />}
+          {userId && report?.pronto && <PersonalReportCard userId={userId} report={report} />}
 
           {nienteDaMostrare && (
             <Card className="text-center">

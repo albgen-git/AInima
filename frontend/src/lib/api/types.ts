@@ -94,6 +94,15 @@ export interface PillolaPendenteOut {
 }
 
 // ── personal_report.py (RF-28..RF-30b) ─────────────────────────────────
+export interface PersonalReportFeedbackIn {
+  valutazione_stelle: number; // 1-5
+  commento_libero?: string | null;
+}
+
+export type PersonalReportFeedbackOut =
+  | { esiste: false }
+  | { esiste: true; valutazione_stelle: number; commento_libero: string | null };
+
 export type PersonalReportOut =
   | { pronto: false }
   | {

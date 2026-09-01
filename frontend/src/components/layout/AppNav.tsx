@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
 import { UserMenu } from "./UserMenu";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 const TABS = [
   { href: "/dashboard", key: "dashboard" },
@@ -41,6 +42,7 @@ export function AppNav() {
               );
             })}
           </nav>
+          <LocaleSwitcher />
           <UserMenu />
         </div>
       </div>

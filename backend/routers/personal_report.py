@@ -56,6 +56,25 @@ def rigenera_report(user_id: UUID):
     return {"generato": testo is not None}
 
 
+@router.get("/{report_id}/feedback")
+def leggi_feedback_report(user_id: UUID, report_id: UUID):
+    """RF-30: feedback già lasciato dall'utente su questa versione di
+    report, se esiste — usato dal frontend per precompilare stelle/
+    commento invece di mostrare un form vuoto quando l'utente torna sulla
+    stessa versione."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT valutazione_stelle, commento_libero FROM personal_report_feedback
+        WHERE report_id = %s AND user_id = %s
+    """, (str(report_id), str(user_id)))
+    r = cur.fetchone()
+    conn.close()
+    if not r:
+        return {"esiste": False}
+    return {"esiste": True, "valutazione_stelle": r["valutazione_stelle"], "commento_libero": r["commento_libero"]}
+
+
 @router.post("/{report_id}/feedback")
 def invia_feedback_report(user_id: UUID, report_id: UUID, payload: PersonalReportFeedbackIn):
     """RF-30: valutazione a stelle (1-5, obbligatoria) + commento libero

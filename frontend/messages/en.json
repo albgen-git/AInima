@@ -32,6 +32,13 @@
     "photos": "Your photos",
     "logout": "Log out"
   },
+  "localeSwitcher": {
+    "label": "Change interface language",
+    "languageNames": {
+      "it": "Italiano",
+      "en": "English"
+    }
+  },
   "onboarding": {
     "steps": {
       "email": "Email",
@@ -349,7 +356,15 @@
       "title": "Your Relationship Readiness",
       "subtitle": "Your personalized analysis, generated from the tests you've completed.",
       "expand": "Read the analysis",
-      "collapse": "Collapse"
+      "collapse": "Collapse",
+      "feedback": {
+        "question": "How much do you recognize yourself in this analysis?",
+        "starLabel": "{n} out of 5 stars",
+        "commentPlaceholder": "Tell us more (optional) — it helps us improve future analyses",
+        "submit": "Send feedback",
+        "sending": "Sending…",
+        "thanks": "Thank you for your feedback."
+      }
     },
     "photos": {
       "title": "Your photos",

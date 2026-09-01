@@ -32,6 +32,13 @@
     "photos": "Le tue foto",
     "logout": "Esci"
   },
+  "localeSwitcher": {
+    "label": "Cambia lingua dell'interfaccia",
+    "languageNames": {
+      "it": "Italiano",
+      "en": "English"
+    }
+  },
   "onboarding": {
     "steps": {
       "email": "Email",
@@ -349,7 +356,15 @@
       "title": "La tua Prontezza Relazionale",
       "subtitle": "La tua analisi personalizzata, generata dai test che hai completato.",
       "expand": "Leggi l'analisi",
-      "collapse": "Riduci"
+      "collapse": "Riduci",
+      "feedback": {
+        "question": "Quanto ti riconosci in questa analisi?",
+        "starLabel": "{n} su 5 stelle",
+        "commentPlaceholder": "Raccontaci di più (facoltativo) — ci aiuta a migliorare le analisi future",
+        "submit": "Invia feedback",
+        "sending": "Invio…",
+        "thanks": "Grazie per il tuo feedback."
+      }
     },
     "photos": {
       "title": "Le tue foto",

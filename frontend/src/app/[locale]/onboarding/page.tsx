@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PageShell, ProgressSteps } from "@/components/ui";
+import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import { authApi } from "@/lib/api";
 import { clearUserId, getUserId } from "@/lib/session";
 import { initialWizardState, WizardState } from "@/lib/wizard/types";
@@ -123,6 +124,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="flex flex-1 justify-center">
+      <LocaleSwitcher className="fixed right-6 top-6" />
       <PageShell>
         <ProgressSteps steps={steps} currentIndex={stepIndex} />
         <div className="mt-8">
