@@ -409,6 +409,8 @@ export interface AffinityOut {
 export interface ProposalAnalisi {
   punteggio_narrativo_strutturato: number;
   spunto_di_attenzione: string | null;
+  /** RF-12: sintesi caratteriale di coppia (Prompt 6) — un solo testo per match, condiviso da entrambe le parti. */
+  sintesi_caratteriale_coppia: string | null;
 }
 
 export interface ProposalAnalysisOut {

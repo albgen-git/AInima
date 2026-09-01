@@ -411,6 +411,13 @@ CREATE TABLE IF NOT EXISTS matches (
     -- versioning: v. tabella matching_algorithm_versions sopra
     algoritmo_versione                 VARCHAR(50) REFERENCES matching_algorithm_versions(versione),
     algoritmo_parametri                 JSONB, -- snapshot dei pesi/soglie da system_config usati per QUESTO abbinamento
+    -- RF-12/RNF-11 (chiarimento esplicito — v. CLAUDE.md, "Prompt 4"
+    -- reintrodotto): sintesi caratteriale di coppia generata dallo strato
+    -- generativo isolato (services/couple_analysis.py) a partire da
+    -- punteggi già calcolati, MAI da dati grezzi. Una sola riga per match
+    -- (non una per utente) — generata una volta e mostrata identica a
+    -- entrambe le parti, mai rigenerata ad ogni GET.
+    analisi_caratteriale_coppia          TEXT,
     CONSTRAINT chk_users_diversi CHECK (user_a_id <> user_b_id)
 );
 

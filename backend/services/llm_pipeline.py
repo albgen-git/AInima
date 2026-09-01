@@ -449,6 +449,16 @@ def estrai_profilo_ideale(descrizione_partner_ideale: str) -> str:
 # vettoriale puro, v. services/text_embedding.py + matching_engine.py
 # (coerenza_narrativa_score) — coerente con RNF-11 (nessuna IA generativa
 # nel calcolo dei punteggi di compatibilità).
+#
+# 2026-09-01 (v. CLAUDE.md, chiarimento esplicito RNF-11 nel Documento
+# Requisiti): questa rimozione resta valida per il vecchio Prompt 4
+# (un LLM che DECIDEVA/INFLUENZAVA il punteggio di compatibilità — la
+# direzione vietata da RNF-11). Il Prompt 6 sotto è un caso diverso e
+# permesso: genera solo TESTO DESCRITTIVO a partire da un punteggio già
+# calcolato altrove (RF-12), non lo calcola né lo influenza — stessa
+# direzione già usata dal Prompt 5 (RF-28). Non è una riapertura del
+# vincolo, è la stessa architettura del report individuale applicata a
+# una coppia.
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -531,5 +541,89 @@ def genera_report_prontezza_relazionale(punteggi: dict, narrativa: str | None = 
         model=MODELLO,
         contents=contenuto,
         config=types.GenerateContentConfig(system_instruction=PROMPT_5_REPORT, temperature=0.7),
+    ))
+    return (risposta.text or "").strip()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PROMPT 6 — Sintesi caratteriale di coppia (RF-12, RNF-11 — v. CLAUDE.md,
+# nota storica su RF-12: "Prompt 4" reintrodotto dopo il chiarimento
+# esplicito sulla direzione del vincolo). Input SOLO punteggi già
+# calcolati (il punteggio di compatibilità finale, la corrispondenza sui
+# criteri graditi, la coerenza valori/aspirazioni, i punteggi dei 4 test
+# psicometrici di ENTRAMBI — l'assemblaggio è responsabilità di
+# services/couple_analysis.py, unico scrittore di
+# matches.analisi_caratteriale_coppia). Deliberatamente NESSUN campo
+# libero RF-07b in input: qui il soggetto e il beneficiario del testo non
+# coincidono (a differenza del Prompt 5, dove sono la stessa persona) —
+# includere le narrazioni libere di entrambi nello stesso prompt aprirebbe
+# un canale per cui il testo libero di UN utente potrebbe tentare di
+# influenzare cosa il sistema scrive sull'ALTRO, un rischio di prompt
+# injection cross-utente più delicato del caso RF-28. Non è un'omissione,
+# è la scelta più prudente finché non serva altrimenti.
+# ═══════════════════════════════════════════════════════════════════════
+PROMPT_6_ANALISI_COPPIA = """Sei l'autore/trice della sintesi caratteriale di coppia per Ainima, mostrata
+a ENTRAMBE le persone di una proposta di abbinamento già formata da un
+sistema di scoring. Il tuo compito è descrivere a parole cosa i punteggi
+già calcolati indicano sulla coppia — tu non calcoli nulla, non decidi se
+sono compatibili (lo ha già stabilito il sistema di scoring prima di te).
+
+## A chi ti rivolgi
+Il testo è UNICO e condiviso: lo leggeranno entrambe le persone insieme,
+non è personalizzato per un punto di vista. Rivolgiti a "voi due"/"la
+coppia", mai a una sola delle due persone in modo che l'altra si senta
+esclusa dalla lettura.
+
+## Cosa NON sei
+Non sei un clinico, uno psicologo, un valutatore. Questo NON è un verdetto
+di compatibilità (già dato dal punteggio, che non rivedi) né una diagnosi
+di coppia. È una lettura costruttiva pensata per aiutare le due persone a
+capirsi meglio quando si incontreranno.
+
+## Regole di tono assolute
+- Caldo, costruttivo, mai clinico o giudicante verso nessuna delle due persone.
+- Mai un numero, una percentuale o un punteggio nel testo.
+- Vietate le parole "disturbo", "patologia", "diagnosi", "disfunzionale",
+  "incompatibili", "incompatibilità", o equivalenti.
+- Ogni area di attenzione va sempre bilanciata da un punto di forza reale
+  nello stesso testo, mai un elenco di soli rischi.
+- Non attribuire mai un tratto/difetto a UNA delle due persone in modo
+  isolato e negativo ("lei è troppo ansiosa") — descrivi sempre la
+  DINAMICA di coppia, mai un giudizio individuale.
+
+## Struttura del testo (senza titoli/numerazione visibili)
+1. Apertura breve che inquadra il tipo di incontro che i punteggi suggeriscono.
+2. 2-3 punti di forza concreti della coppia — dove i due profili si
+   completano o si rafforzano a vicenda, riconducibili ai punteggi forniti.
+3. 1-2 aree dove potrebbe servire più comunicazione o compromesso — sempre
+   proposte come spunti da esplorare insieme, mai come un limite fisso.
+
+Lunghezza: 150-280 parole. Prosa scorrevole, nessun elenco puntato.
+
+## Materiale in input
+Riceverai in formato strutturato: il punteggio di compatibilità finale
+già calcolato, il grado di corrispondenza sui criteri graditi, la
+coerenza tra valori/aspirazioni emersa dal Test Profilo Relazionale, e i
+punteggi dei quattro test psicometrici di entrambe le persone (Big Five,
+Attaccamento, EQ, Test Profilo Relazionale). Usali come UNICA fonte per
+le tue osservazioni — non inventare fatti biografici o dettagli non
+riconducibili a questi punteggi.
+
+## Output
+Solo il testo della sintesi, nessun titolo, nessun preambolo tipo "Ecco
+la sintesi:", nessun markdown."""
+
+
+def genera_analisi_caratteriale_coppia(punteggi_coppia: dict) -> str:
+    """Prompt 6. `punteggi_coppia`: dizionario dei soli punteggi già
+    aggregati per la coppia (mai risposte grezze, mai i campi liberi
+    RF-07b di alcuno dei due — v. commento sopra sul rischio di prompt
+    injection cross-utente). Generata UNA sola volta per match, non una
+    per utente (v. services/couple_analysis.py)."""
+    contenuto = json.dumps(punteggi_coppia, ensure_ascii=False, indent=2)
+    risposta = _con_retry(lambda: _get_client().models.generate_content(
+        model=MODELLO,
+        contents=contenuto,
+        config=types.GenerateContentConfig(system_instruction=PROMPT_6_ANALISI_COPPIA, temperature=0.7),
     ))
     return (risposta.text or "").strip()

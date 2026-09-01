@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 
 from db import get_conn
 from schemas.matching import MatchDecision, ProposalOut
-from services import matching_engine
+from services import couple_analysis, matching_engine
 from services.email_provider import get_email_provider
 
 router = APIRouter(tags=["matching"])
@@ -137,13 +137,20 @@ SPUNTO_ATTENZIONE_COSTRUTTIVO = (
 )
 
 
-def _calcola_analisi(cur, user_id: str, altro_id: str, flag_rifiuto: bool, flag_asimmetria: bool):
+def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag_rifiuto: bool, flag_asimmetria: bool):
     """Nucleo condiviso tra /proposal/analysis (proposta attiva corrente)
     e /matches/{match_id}/analysis (qualunque match, incluso Rubrica) —
     stessa aritmetica sul Test Profilo Relazionale, stessa riformulazione
     del risultato in un unico spunto costruttivo generico (mai quale dei
     due flag, mai un dettaglio specifico — l'anonimato/la delicatezza del
-    dato restano garantiti in entrambi i punti di chiamata)."""
+    dato restano garantiti in entrambi i punti di chiamata).
+
+    RF-12: include anche la sintesi caratteriale di coppia (services/
+    couple_analysis.py — genera solo se non già presente per questo
+    match_id, mai rigenerata ad ogni chiamata). Un fallimento di
+    generazione (LLM lento/non disponibile) non deve mai far fallire
+    l'intero endpoint — degrado a sintesi_caratteriale_coppia: None,
+    stesso principio già applicato al report personale RF-28."""
     cur.execute(f"""
         SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
         FROM psychometric_scores WHERE user_id IN (%s, %s)
@@ -160,9 +167,17 @@ def _calcola_analisi(cur, user_id: str, altro_id: str, flag_rifiuto: bool, flag_
 
     punteggio, _ = matching_engine.punteggio_narrativo_strutturato(dict(righe[user_id]), dict(righe[altro_id]))
     spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (flag_rifiuto or flag_asimmetria) else None
+
+    sintesi = None
+    try:
+        sintesi = couple_analysis.genera_e_salva(conn, cur, match_id, user_id, altro_id)
+    except Exception as e:
+        print(f"[ERRORE] generazione sintesi caratteriale coppia per match {match_id} fallita: {e}")
+
     return {"pronta": True, "analisi": {
         "punteggio_narrativo_strutturato": punteggio,
         "spunto_di_attenzione": spunto,
+        "sintesi_caratteriale_coppia": sintesi,
     }}
 
 
@@ -188,7 +203,7 @@ def analisi_proposta_corrente(user_id: UUID):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT CASE WHEN m.user_a_id = %s THEN m.user_b_id ELSE m.user_a_id END AS altro_id,
+        SELECT m.match_id, CASE WHEN m.user_a_id = %s THEN m.user_b_id ELSE m.user_a_id END AS altro_id,
                m.flag_rifiuto_esplicito, m.flag_asimmetria_narrativa
         FROM matches m
         WHERE (m.user_a_id = %s OR m.user_b_id = %s)
@@ -200,7 +215,7 @@ def analisi_proposta_corrente(user_id: UUID):
         conn.close()
         raise HTTPException(404, "Nessuna proposta attiva per questo utente")
 
-    risultato = _calcola_analisi(cur, str(user_id), str(m["altro_id"]),
+    risultato = _calcola_analisi(conn, cur, str(m["match_id"]), str(user_id), str(m["altro_id"]),
                                   m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
     conn.close()
     return risultato
@@ -230,7 +245,7 @@ def analisi_match(user_id: UUID, match_id: UUID):
         conn.close()
         raise HTTPException(403, "Questo match non appartiene all'utente indicato")
 
-    risultato = _calcola_analisi(cur, str(user_id), str(m["altro_id"]),
+    risultato = _calcola_analisi(conn, cur, str(match_id), str(user_id), str(m["altro_id"]),
                                   m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
     conn.close()
     return risultato
@@ -290,7 +305,19 @@ def esegui_ciclo_mensile(dry_run: bool = True):
     risolve il problema di reciprocità del ciclo greedy iniziale). dry_run
     =True (default) calcola senza scrivere — passare dry_run=false per
     generare davvero le righe in 'matches' (da schedulare come cron
-    mensile in produzione, v. RF-11)."""
+    mensile in produzione, v. RF-11).
+
+    RF-12, nota deliberata: a differenza di /admin/matching/propose/{id}
+    (un solo match, genera la sintesi caratteriale di coppia in modo
+    sincrono), QUESTO endpoint NON genera la sintesi per le potenzialmente
+    centinaia di coppie create in un run reale — farlo qui, sincrono,
+    dentro una singola richiesta HTTP, rischierebbe lo stesso timeout/OOM
+    già trovato e risolto per il caricamento del pool (v. CLAUDE.md). La
+    sintesi per i match creati da qui viene generata pigramente alla prima
+    GET /users/{id}/proposal/analysis o /matches/{id}/analysis (v.
+    _calcola_analisi sotto) — nessuno scheduler/coda reale per pre-
+    generarle in background, stesso limite già accettato altrove nel
+    progetto per i cicli periodici."""
     conn = get_conn()
     risultati = matching_engine.run_monthly_batch(conn, dry_run=dry_run)
     conn.close()
@@ -346,6 +373,14 @@ def proponi_match_singolo(user_id: UUID):
           bool(esito["flag_rifiuto_esplicito"]), bool(esito["flag_asimmetria_narrativa"])))
     match_id = cur.fetchone()["match_id"]
     conn.commit()
+
+    # RF-12: genera la sintesi caratteriale di coppia una volta qui, alla
+    # creazione del match (non aspetta la prima GET) — un fallimento non
+    # deve mai bloccare la creazione della proposta né l'invio email sotto.
+    try:
+        couple_analysis.genera_e_salva(conn, cur, str(match_id), str(user_id), str(cand_id))
+    except Exception as e:
+        print(f"[ERRORE] generazione sintesi caratteriale coppia per match {match_id} fallita: {e}")
 
     frontend_url = os.environ.get("FRONTEND_BASE_URL", "https://ainima.netlify.app")
     for uid in (str(user_id), str(cand_id)):

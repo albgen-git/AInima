@@ -1,13 +1,14 @@
 import type { ProposalAnalysisOut } from "@/lib/api";
 
 /**
- * Barra di compatibilità caratteriale (RF-12: "sintesi dell'analisi
- * caratteriale" della coppia) — MAI un numero stampato (v. CLAUDE.md:
- * "all'utente non va mai mostrato un numero, una percentuale o
- * un'etichetta clinica"), solo una barra visiva + un eventuale spunto
- * costruttivo generico. Condivisa tra la schermata Proposta e la Rubrica
- * (un match specifico, qualunque stato) — v. rispettivamente
- * matchingApi.getProposalAnalysis/getMatchAnalysis.
+ * Barra di compatibilità caratteriale + sintesi testuale di coppia (RF-12
+ * — v. CLAUDE.md/Documento_Requisiti_v1.md, "Prompt 6") — MAI un numero
+ * stampato ("all'utente non va mai mostrato un numero, una percentuale o
+ * un'etichetta clinica"): solo la barra visiva + il testo generato.
+ * Condivisa tra la schermata Proposta e la Rubrica (un match specifico,
+ * qualunque stato) — v. rispettivamente matchingApi.getProposalAnalysis/
+ * getMatchAnalysis. La sintesi è generata una sola volta per match e
+ * identica per entrambe le parti (mai due versioni separate).
  */
 export function CompatibilityBar({
   analysis,
@@ -32,8 +33,16 @@ export function CompatibilityBar({
         />
       </div>
       <p className="mt-2 text-sm text-slate">{hintText}</p>
-      {analysis.analisi.spunto_di_attenzione && (
-        <p className="mt-3 text-sm text-slate">{analysis.analisi.spunto_di_attenzione}</p>
+      {analysis.analisi.sintesi_caratteriale_coppia ? (
+        <p className="mt-3 whitespace-pre-line text-sm text-navy">
+          {analysis.analisi.sintesi_caratteriale_coppia}
+        </p>
+      ) : (
+        // Fallback se la generazione non è (ancora) riuscita — non blocca
+        // la UI, mostra solo lo spunto generico più leggero già esistente.
+        analysis.analisi.spunto_di_attenzione && (
+          <p className="mt-3 text-sm text-slate">{analysis.analisi.spunto_di_attenzione}</p>
+        )
       )}
     </div>
   );
