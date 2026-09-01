@@ -1,6 +1,9 @@
 """RF-10..RF-15: proposta mensile, accettazione/rifiuto. Il calcolo vero
 e proprio vive in services/matching_engine.py."""
 
+import json
+import os
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -8,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from db import get_conn
 from schemas.matching import MatchDecision, ProposalOut
 from services import matching_engine
+from services.email_provider import get_email_provider
 
 router = APIRouter(tags=["matching"])
 
@@ -257,3 +261,68 @@ def esegui_ciclo_mensile(dry_run: bool = True):
         riepilogo[r["esito"]] = riepilogo.get(r["esito"], 0) + 1
         utenti_coperti += 2 if r["esito"] == "proposta" else 1
     return {"dry_run": dry_run, "utenti_coperti": utenti_coperti, "coppie_e_singoli": len(risultati), "riepilogo": riepilogo}
+
+
+@router.post("/admin/matching/propose/{user_id}")
+def proponi_match_singolo(user_id: UUID):
+    """Trigger mirato per UN singolo utente — a differenza di run-cycle
+    (che ricalcola l'intero pool con l'abbinamento stabile), usa
+    find_best_match() così com'è già per l'anteprima/affinity, utile per
+    test/dimostrazioni senza rigenerare le proposte di migliaia di altri
+    profili demo. Stesse colonne scritte in 'matches' di run_monthly_batch.
+
+    Gap reale trovato mentre veniva richiesto questo trigger: nessun
+    codice invia un'email alla creazione di una proposta, né qui né nel
+    batch mensile — RF-11/12/13 non lo richiedono esplicitamente (a
+    differenza di RF-29 per il report personale), ma l'utente la vuole per
+    questo test — v. CLAUDE.md. Notifica inviata a entrambe le parti, mai
+    il contenuto/identità del match (RF-12, proposta anonima) — solo
+    l'invito a controllare la propria area personale."""
+    conn = get_conn()
+    cur = conn.cursor()
+    pool = matching_engine.load_pool(cur)
+    if str(user_id) not in pool:
+        conn.close()
+        raise HTTPException(404, "Utente non trovato nel pool di matching (deve essere Attivo)")
+
+    cfg = matching_engine.load_config_floats(cur)
+    esito = matching_engine.find_best_match(str(user_id), pool, cfg)
+    if esito["esito"] != "proposta":
+        conn.close()
+        return {"esito": esito["esito"]}
+
+    cand_id = esito["candidato_id"]
+    scadenza = datetime.now(timezone.utc) + timedelta(days=int(cfg.get("finestra_risposta_match_giorni", 7)))
+    cur.execute("""
+        INSERT INTO matches (user_a_id, user_b_id, stato, final_score,
+                             data_scadenza_risposta, algoritmo_versione, algoritmo_parametri,
+                             shortlist_candidati, selezionato_per_somiglianza_visiva,
+                             flag_rifiuto_esplicito, flag_asimmetria_narrativa)
+        VALUES (%s, %s, 'Proposto', %s, %s, %s, %s::jsonb, %s::uuid[], %s, %s, %s)
+        RETURNING match_id
+    """, (str(user_id), str(cand_id), esito["final_score"], scadenza,
+          matching_engine.ALGORITMO_VERSIONE, json.dumps(cfg),
+          [str(c) for c in esito["shortlist"]], bool(esito["selezionato_per_somiglianza_visiva"]),
+          bool(esito["flag_rifiuto_esplicito"]), bool(esito["flag_asimmetria_narrativa"])))
+    match_id = cur.fetchone()["match_id"]
+    conn.commit()
+
+    frontend_url = os.environ.get("FRONTEND_BASE_URL", "https://ainima.netlify.app")
+    for uid in (str(user_id), str(cand_id)):
+        try:
+            cur.execute("SELECT email FROM users WHERE user_id = %s", (uid,))
+            email = cur.fetchone()["email"]
+            get_email_provider().invia_notifica(
+                email, "Hai una nuova proposta di abbinamento",
+                "<p>Ainima ti ha proposto un nuovo abbinamento questo mese.</p>"
+                "<p>Vai alla tua area personale per scoprire chi è.</p>"
+                f"<p><a href=\"{frontend_url}/it/proposal\">Vedi la proposta</a></p>",
+            )
+        except Exception as e:
+            print(f"[ERRORE] invio email nuova proposta a {uid} fallito: {e}")
+
+    conn.close()
+    return {
+        "esito": "proposta", "match_id": match_id, "candidato_id": cand_id,
+        "final_score": esito["final_score"],
+    }
