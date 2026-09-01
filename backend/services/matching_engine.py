@@ -71,6 +71,15 @@ def cosine(v1, v2):
 
 
 def haversine_km(lon1, lat1, lon2, lat2):
+    """None (non un crash) se manca una coordinata su uno dei due lati —
+    bug reale trovato dal vivo (v. CLAUDE.md): un utente reale senza
+    coordinate (comune_residenza mai geocodificato — v. nota su
+    routers/profile.py) mandava in crash l'intero motore di matching, sia
+    per il trigger singolo sia per il ciclo mensile, non solo per quel
+    profilo. Il chiamante (valuta_distanza) tratta None come 'filtro
+    distanza non superato', coerente con lo stile hard-filter esistente."""
+    if None in (lon1, lat1, lon2, lat2):
+        return None
     R = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -308,6 +317,13 @@ def valuta_distanza(seeker, cand, dist_km, cfg):
 
     Ritorna (passa: bool, punteggio_distanza: float|None) — punteggio_distanza
     è None quando il filtro fallisce (nessun punteggio da propagare)."""
+    if dist_km is None:
+        # coordinate mancanti su uno dei due lati (v. haversine_km) — non è
+        # "lontano", è "sconosciuto": il filtro distanza non può essere
+        # valutato, quindi non passa, invece di confondersi con il ramo
+        # "oltre l'area urbana ma lingua condivisa" che presume una distanza
+        # reale nota.
+        return False, None
     soglia_urbana = cfg["soglia_area_urbana_km"]
     if dist_km <= soglia_urbana:
         return True, 1 - (dist_km / soglia_urbana)
@@ -486,7 +502,22 @@ def load_config(cur):
 
 
 def load_config_floats(cur):
-    return {k: float(v) for k, v in load_config(cur).items()}
+    """system_config è una tabella chiave-valore CONDIVISA con impostazioni
+    non numeriche estranee al matching (es. Blocco E:
+    giorno_invio_email_engagement='Martedì') — bug reale trovato dal vivo
+    (v. CLAUDE.md): un float(v) incondizionato su ogni riga crashava
+    l'intero motore di matching (run-cycle e il trigger singolo) appena
+    quella riga non numerica è stata aggiunta, mai più notato perché il
+    ciclo mensile non era stato rieseguito dopo il Blocco E. Le chiavi non
+    numeriche non sono comunque parametri del motore di matching — si
+    escludono, non si prova a "salvarle" in altro modo."""
+    risultato = {}
+    for k, v in load_config(cur).items():
+        try:
+            risultato[k] = float(v)
+        except (TypeError, ValueError):
+            continue
+    return risultato
 
 
 def media_visiva_bidirezionale(seeker, cand):
