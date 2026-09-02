@@ -45,27 +45,27 @@ trattamento di flag_rifiuto_esplicito (v. routers/matching.py, routers/admin.py)
 Aggiornamento 2026-09-03 (stable_v9, v. CLAUDE.md — migrazione AWS
 Rekognition, richiesta esplicita dell'utente): la selezione per
 somiglianza visiva (RF-11a/RF-11b) non confronta più embedding
-precalcolati (ArcFace) — chiama AWS Rekognition CompareFaces on-demand
-tra la foto "partner ideale" del cercatore e la foto profilo di ciascun
-candidato in shortlist, senza nulla di precalcolato/persistito a lungo
-termine (v. services/face_recognition.py). Rompe deliberatamente la
-purezza computazionale del resto di questo modulo (nessun'altra funzione
-qui fa chiamate di rete) — isolato in seleziona_per_somiglianza_visiva()/
+precalcolati (ArcFace) — chiama AWS Rekognition CompareFaces on-demand,
+senza nulla di precalcolato/persistito a lungo termine (v.
+services/face_recognition.py). Rompe deliberatamente la purezza
+computazionale del resto di questo modulo (nessun'altra funzione qui fa
+chiamate di rete) — isolato in seleziona_per_somiglianza_visiva()/
 somiglianza_visiva(), unico punto del file con questo effetto collaterale.
-Due scostamenti espliciti dal design precedente, segnalati all'utente
-(non decisi in silenzio): (a) confronto ORA UNIDIREZIONALE (solo
-ideale-del-cercatore vs profilo-del-candidato), non più la media
-bidirezionale introdotta in stable_v1 per compensare l'asimmetria di
-ArcFace (un modello di identity-verification riadattato) — CompareFaces è
-pensato nativamente per la somiglianza tra due foto, la stessa
-contromisura non è più necessaria; (b) NESSUNA soglia minima di
-similarità — la calibrazione a percentile di stable_v5 (nata per un
-problema specifico di ArcFace: il 90° percentile tra coppie casuali era
-già statisticamente alto quanto la vecchia soglia fissa) non si applica a
-un punteggio di confidenza "stessa persona" come CompareFaces, dove anche
-un valore basso resta comunque il migliore disponibile in shortlist.
-embedding_visivo_profilo/embedding_visivo_partner_ideale non sono più
-letti da load_pool() (restano a schema, deprecati — v. CLAUDE.md).
+Resta BIDIREZIONALE (media delle due direzioni quando entrambe
+calcolabili) — non per compensare un'asimmetria di modello come in
+stable_v1 (CompareFaces non ha quel problema), ma per intento di
+prodotto confermato dall'utente il 2026-09-03: l'abbinamento visivo deve
+premiare la coppia in cui ENTRAMBE le persone somigliano all'ideale
+dichiarato dall'altra, non solo una delle due direzioni. Uno scostamento
+esplicito dal design precedente resta, segnalato all'utente: NESSUNA
+soglia minima di similarità — la calibrazione a percentile di stable_v5
+(nata per un problema specifico di ArcFace: il 90° percentile tra coppie
+casuali era già statisticamente alto quanto la vecchia soglia fissa) non
+si applica a un punteggio di confidenza "stessa persona" come
+CompareFaces, dove anche un valore basso resta comunque il migliore
+disponibile in shortlist. embedding_visivo_profilo/
+embedding_visivo_partner_ideale non sono più letti da load_pool()
+(rimossi dallo schema — v. CLAUDE.md).
 """
 
 import json
@@ -635,16 +635,30 @@ def load_config_floats(cur):
 
 
 def somiglianza_visiva(seeker, cand):
-    """RF-11b via AWS Rekognition CompareFaces — un solo confronto
-    direzionale (v. nota stable_v9 in cima al file per il perché non è più
-    bidirezionale come con gli embedding ArcFace). None se non calcolabile
-    (foto mancante da un lato, nessun volto rilevabile, errore di rete/
-    servizio) — mai un'eccezione, il chiamante tratta un candidato senza
-    punteggio visivo come "escluso da questo confronto", non come un
-    errore da propagare (v. services/face_recognition.py)."""
-    if seeker["foto_partner_ideale_url"] is None or cand["foto_profilo_url"] is None:
+    """RF-11b via AWS Rekognition CompareFaces — BIDIREZIONALE (media delle
+    due direzioni quando entrambe calcolabili): ideale-del-cercatore vs
+    profilo-del-candidato, E ideale-del-candidato vs profilo-del-cercatore.
+    Intento di prodotto confermato dall'utente (2026-09-03): l'abbinamento
+    deve premiare la coppia in cui ENTRAMBE le persone somigliano
+    all'ideale dichiarato dall'altra, non solo una direzione — non è più,
+    come in stable_v1-v8, una contromisura per l'asimmetria di un modello
+    di identity-verification riadattato (ArcFace). Se una direzione non è
+    calcolabile (foto mancante da un lato, nessun volto rilevabile, errore
+    di rete/servizio — v. services/face_recognition.py), si usa solo
+    quella disponibile invece di far fallire l'intero confronto; None solo
+    se NESSUNA delle due direzioni è calcolabile."""
+    punteggi = []
+    if seeker["foto_partner_ideale_url"] is not None and cand["foto_profilo_url"] is not None:
+        p = face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
+        if p is not None:
+            punteggi.append(p)
+    if cand["foto_partner_ideale_url"] is not None and seeker["foto_profilo_url"] is not None:
+        p = face_recognition.confronta_foto(cand["foto_partner_ideale_url"], seeker["foto_profilo_url"])
+        if p is not None:
+            punteggi.append(p)
+    if not punteggi:
         return None
-    return face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
+    return sum(punteggi) / len(punteggi)
 
 
 def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n):
