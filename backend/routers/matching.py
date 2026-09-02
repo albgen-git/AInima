@@ -62,7 +62,7 @@ def analisi_affinita_narrativa(user_id: UUID, other_user_id: UUID):
             raise HTTPException(
                 409, f"Utente {uid} non ha ancora completato il Test Profilo Relazionale")
 
-    punteggio, flag_asimmetria_narrativa = matching_engine.punteggio_narrativo_strutturato(
+    punteggio, flag_asimmetria_narrativa, _ = matching_engine.punteggio_narrativo_strutturato(
         dict(righe[str(user_id)]), dict(righe[str(other_user_id)]))
     return {"punteggio_narrativo_strutturato": punteggio, "flag_asimmetria_narrativa": flag_asimmetria_narrativa}
 
@@ -150,7 +150,22 @@ def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag
     match_id, mai rigenerata ad ogni chiamata). Un fallimento di
     generazione (LLM lento/non disponibile) non deve mai far fallire
     l'intero endpoint — degrado a sintesi_caratteriale_coppia: None,
-    stesso principio già applicato al report personale RF-28."""
+    stesso principio già applicato al report personale RF-28.
+
+    2026-09-02 (v. CLAUDE.md, bug reale trovato testando la Rubrica dal
+    vivo): il gate precedente richiedeva che ENTRAMBI gli utenti avessero
+    completato tutte le 8 colonne del Test Profilo Relazionale prima di
+    ritornare qualunque cosa — bloccando anche sintesi_caratteriale_coppia,
+    che invece services/couple_analysis.py sa già generare con quel dato
+    mancante (fallback neutro, verificato con generazioni reali). Il caso
+    Alberto/Patrizia (Patrizia non ha completato il test) aveva un testo
+    già generato e salvato nel DB che la Rubrica non mostrava mai per
+    questo motivo. Ora il gate richiede solo che esista una riga
+    psychometric_scores per entrambi (creata alla registrazione, v.
+    schema — quindi praticamente sempre vera) — punteggio_narrativo_
+    strutturato() gestisce da sola il dato mancante restituendo il suo
+    fallback neutro (0.5, v. matching_engine.py), esattamente come già
+    faceva prima di questo fix per gli usi interni al motore di scoring."""
     cur.execute(f"""
         SELECT user_id, {', '.join(CAMPI_PROFILO_RELAZIONALE)}
         FROM psychometric_scores WHERE user_id IN (%s, %s)
@@ -161,11 +176,10 @@ def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag
     # UUID/str falliva silenziosamente).
     righe = {str(r["user_id"]): r for r in cur.fetchall()}
 
-    for uid in (user_id, altro_id):
-        if uid not in righe or any(righe[uid][c] is None for c in CAMPI_PROFILO_RELAZIONALE):
-            return {"pronta": False, "analisi": None}
+    if user_id not in righe or altro_id not in righe:
+        return {"pronta": False, "analisi": None}
 
-    punteggio, _ = matching_engine.punteggio_narrativo_strutturato(dict(righe[user_id]), dict(righe[altro_id]))
+    punteggio, _, _ = matching_engine.punteggio_narrativo_strutturato(dict(righe[user_id]), dict(righe[altro_id]))
     spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (flag_rifiuto or flag_asimmetria) else None
 
     sintesi = None

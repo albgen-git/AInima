@@ -70,14 +70,14 @@ def main():
         a, b = pool[uid], pool[cand_id]
         bf = me.bigfive_score(a, b)
         eq = me.eq_score(a, b)
-        narrativa, _ = me.punteggio_narrativo_strutturato(a, b)
+        narrativa, _, _ = me.punteggio_narrativo_strutturato(a, b)
         dist = me.haversine_km(a["lon"], a["lat"], b["lon"], b["lat"])
         _, punteggio_distanza = me.valuta_distanza(a, b, dist, cfg)
-        # combina_soft_e_distanza ritorna una tupla (punteggio, flag_rifiuto_esplicito)
-        # dal Blocco 5 (Liste_Piace_Detesta) — questo script non era mai
-        # stato aggiornato per quel cambio, bug slegato dal Blocco D ma
-        # trovato verificando dal vivo (v. CLAUDE.md).
-        soft, _ = me.combina_soft_e_distanza(a, b, punteggio_distanza)
+        # punteggio_narrativo_strutturato/combina_soft_e_distanza ritornano
+        # anche un dettaglio (per il report di coppia, v. CLAUDE.md) oltre
+        # al punteggio/flag — scartato qui, questo script simula solo i
+        # punteggi aggregati.
+        soft, _, _ = me.combina_soft_e_distanza(a, b, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
 

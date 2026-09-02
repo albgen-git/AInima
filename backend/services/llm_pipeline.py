@@ -470,6 +470,14 @@ def estrai_profilo_ideale(descrizione_partner_ideale: str) -> str:
 # narrativa libera RF-07b, opzionale, come colore aggiuntivo — mai come
 # istruzione (delimitata esplicitamente sotto, dato non fidato — RNF-11/
 # §7.5b, stesso principio già applicato ai Prompt 3a/3b).
+#
+# 2026-09-02 (v. CLAUDE.md, audit richiesto dall'utente): il vincolo di
+# concretezza del documento originale (Ainima_Matching_Semantico_Report_v1.md
+# §6 — "con un esempio dedotto dal profilo, non generico") si era annacquato
+# nella versione qui sotto ("osservazioni concrete... riconducibili ai
+# punteggi forniti") — sparito sia il divieto esplicito di genericità sia
+# l'obbligo di un esempio per punto citato. Ripristinato come sezione
+# "Regola vincolante: concretezza" dedicata più sotto.
 # ═══════════════════════════════════════════════════════════════════════
 PROMPT_5_REPORT = """Sei l'autore/trice del report "La tua Prontezza Relazionale" per Ainima,
 un'agenzia matrimoniale. Scrivi un testo di auto-consapevolezza per la
@@ -497,13 +505,33 @@ definitivo sulla persona. È un invito alla riflessione, non un verdetto.
 ## Struttura del testo (senza titoli/numerazione visibili)
 1. Apertura calda (2-3 frasi) che riconosce il percorso di auto-
    conoscenza appena completato.
-2. Punti di forza nella vita di coppia/relazionale (2-3 osservazioni
-   concrete, ciascuna riconducibile ai punteggi forniti).
+2. Punti di forza nella vita di coppia/relazionale (2-3 osservazioni).
 3. Aree di attenzione/crescita (1-2 osservazioni, sempre proposte come
    spunti da esplorare — mai come limiti fissi o difetti) e una
    chiusura propositiva.
 
 Lunghezza: 200-350 parole. Prosa scorrevole, nessun elenco puntato.
+
+## Regola vincolante: concretezza (VIETATA la genericità)
+Non basta che il testo "sembri" specifico — deve esserlo davvero. Per
+OGNI punto di forza o area di attenzione che scrivi, deve esistere un
+dato preciso tra quelli ricevuti in input (una dimensione Big Five, un
+pilastro EQ, lo stile di attaccamento, una sotto-dimensione del Test
+Profilo Relazionale) che lo giustifica — e quel dato va nominato (non
+necessariamente come numero grezzo, ma come categoria o contenuto
+riconoscibile). Se una frase che stai per scrivere potrebbe applicarsi
+a qualunque persona a prescindere dai suoi punteggi, riscrivila o
+scartala: meglio 2 osservazioni vere di 4 generiche.
+
+- Dimensione con punteggio alto (>0.7): descrivila come punto di forza
+  concreto, con un esempio dedotto da quel dato specifico — mai in un
+  modo che potrebbe descrivere una persona qualunque.
+- Dimensione con punteggio medio (0.4-0.7): menzionala SOLO se hai
+  davvero qualcosa di specifico da dire — non forzare la copertura di
+  ogni test/pilastro presente in input.
+- Dimensione con punteggio basso (<0.4): trasformala SEMPRE in uno
+  spunto di crescita costruttivo, mai nominando il "problema" — solo
+  la direzione di crescita.
 
 ## Materiale in input
 Riceverai i punteggi già calcolati dei quattro test (Big Five,
@@ -549,24 +577,52 @@ def genera_report_prontezza_relazionale(punteggi: dict, narrativa: str | None = 
 # PROMPT 6 — Sintesi caratteriale di coppia (RF-12, RNF-11 — v. CLAUDE.md,
 # nota storica su RF-12: "Prompt 4" reintrodotto dopo il chiarimento
 # esplicito sulla direzione del vincolo). Input SOLO punteggi già
-# calcolati (il punteggio di compatibilità finale, la corrispondenza sui
-# criteri graditi, la coerenza valori/aspirazioni, i punteggi dei 4 test
-# psicometrici di ENTRAMBI — l'assemblaggio è responsabilità di
-# services/couple_analysis.py, unico scrittore di
-# matches.analisi_caratteriale_coppia). Deliberatamente NESSUN campo
-# libero RF-07b in input: qui il soggetto e il beneficiario del testo non
-# coincidono (a differenza del Prompt 5, dove sono la stessa persona) —
-# includere le narrazioni libere di entrambi nello stesso prompt aprirebbe
-# un canale per cui il testo libero di UN utente potrebbe tentare di
-# influenzare cosa il sistema scrive sull'ALTRO, un rischio di prompt
-# injection cross-utente più delicato del caso RF-28. Non è un'omissione,
-# è la scelta più prudente finché non serva altrimenti.
+# calcolati — l'assemblaggio è responsabilità di services/couple_analysis.py,
+# unico scrittore di matches.analisi_caratteriale_coppia. Deliberatamente
+# NESSUN campo libero RF-07b in input: qui il soggetto e il beneficiario
+# del testo non coincidono (a differenza del Prompt 5, dove sono la stessa
+# persona) — includere le narrazioni libere di entrambi nello stesso
+# prompt aprirebbe un canale per cui il testo libero di UN utente potrebbe
+# tentare di influenzare cosa il sistema scrive sull'ALTRO, un rischio di
+# prompt injection cross-utente più delicato del caso RF-28. Non è
+# un'omissione, è la scelta più prudente finché non serva altrimenti.
+#
+# 2026-09-02 (v. CLAUDE.md, Ainima_Prompt_Report_Abbinamento_v1.md — prima
+# riscrittura, dopo l'audit che ha trovato il report Alberto/Patrizia
+# generico): il problema principale non era il prompt ma l'input troppo
+# povero (v. services/couple_analysis.py per il dettaglio arricchito: 13
+# sotto-dimensioni del Test Profilo Relazionale invece del solo aggregato,
+# interessi condivisi citabili per nome, stile di attaccamento + 4
+# pilastri EQ singoli).
+#
+# 2026-09-02, SECONDA riscrittura (documento aggiornato, non una patch —
+# la struttura di output è cambiata da prosa a punti): la prima versione
+# aveva una contraddizione interna che era la causa reale delle violazioni
+# "in uno di voi" osservate nei test — la regola di citazione Big Five
+# chiedeva esplicitamente "nominando quale dei due mostra cosa", in
+# conflitto diretto con la regola del pubblico duale poche righe sotto.
+# Corretta: ora il Big Five va SEMPRE descritto a livello condiviso o come
+# dinamica di coppia, mai attribuito a una persona identificabile — le due
+# regole sono coerenti tra loro adesso, non più in tensione. Aggiunto anche
+# un divieto sintattico esplicito ("[tratto A] si unisce a/si affianca a
+# [tratto B]") che il formato a punti (isolando ogni punto di forza a UNA
+# sola categoria) rende strutturalmente quasi impossibile da produrre, non
+# solo vietato per regola.
+#
+# Garanzia STRUTTURALE (non solo di prompt) sulla regola "mai sovrapposizioni
+# negative dalle liste tag": interessi_condivisi_citabili in input contiene
+# SOLO sovrapposizioni positive (mi_piace/partner_vorrei) — costruito da
+# matching_engine.punteggio_tag_liste senza mai leggere le liste di rifiuto
+# (v. quel file). Il modello non riceve MAI il dato di flag_rifiuto_esplicito
+# né le liste non_sopporto/partner_non_vorrei: la regola sotto è comunque
+# esplicitata come difesa in profondità, non l'unica barriera.
 # ═══════════════════════════════════════════════════════════════════════
-PROMPT_6_ANALISI_COPPIA = """Sei l'autore/trice della sintesi caratteriale di coppia per Ainima, mostrata
-a ENTRAMBE le persone di una proposta di abbinamento già formata da un
-sistema di scoring. Il tuo compito è descrivere a parole cosa i punteggi
-già calcolati indicano sulla coppia — tu non calcoli nulla, non decidi se
-sono compatibili (lo ha già stabilito il sistema di scoring prima di te).
+PROMPT_6_ANALISI_COPPIA = """Sei l'autore/trice del report di abbinamento che una coppia di utenti
+Ainima riceve quando viene proposto un match. Il tuo compito è spiegare
+PERCHÉ questo abbinamento specifico è stato proposto, usando i dati reali
+dei due profili — mai un testo che potrebbe applicarsi a qualunque altra
+coppia. Tu non calcoli nulla, non decidi se sono compatibili (lo ha già
+stabilito il sistema di scoring prima di te).
 
 ## A chi ti rivolgi
 Il testo è UNICO e condiviso: lo leggeranno entrambe le persone insieme,
@@ -580,38 +636,149 @@ di compatibilità (già dato dal punteggio, che non rivedi) né una diagnosi
 di coppia. È una lettura costruttiva pensata per aiutare le due persone a
 capirsi meglio quando si incontreranno.
 
+## Materiale in input
+Riceverai in formato strutturato: il punteggio di compatibilità finale,
+il grado di corrispondenza sui criteri graditi, il dettaglio per
+sotto-dimensione del Test Profilo Relazionale (categoria + nome +
+punteggio di compatibilità, non solo l'aggregato), eventuali interessi
+condivisi citabili per nome (solo sovrapposizioni POSITIVE — se questo
+elenco è vuoto o assente, semplicemente non hai nessun interesse da
+citare, non inventarne uno), e i punteggi psicometrici di entrambe le
+persone (Big Five, Attaccamento con stile prevalente, i 4 pilastri EQ).
+Usali come UNICA fonte per le tue osservazioni — non inventare fatti
+biografici o dettagli non riconducibili a questi dati.
+
+## Regola vincolante: minimo di citazioni concrete
+Il report DEVE contenere (rispettando SEMPRE la regola del pubblico duale
+sotto — citare un dato concreto e anonimizzare la fonte non sono in
+conflitto, vanno fatte insieme):
+- Almeno 2 riferimenti a sotto-dimensioni SPECIFICHE del Test Profilo
+  Relazionale, nominando la categoria (es. "sulla centralità della
+  famiglia", "nel modo di gestire i momenti di tensione") — non un
+  generico "condividete valori simili".
+- Almeno 1 riferimento a una dimensione Big Five specifica, descritta
+  come LIVELLO CONDIVISO o DINAMICA DI COPPIA, MAI attribuita a una
+  persona identificabile. Corretto: "mostrate un livello simile di
+  energia sociale, che rende naturale sincronizzare i ritmi" (se
+  simile) o "la vostra energia sociale si bilancia nel quotidiano" (se
+  complementare). Sbagliato: "la tua naturale energia sociale" o
+  qualunque forma che riveli a chi dei due si riferisce il dato.
+- Se ricevi interessi condivisi citabili: almeno 1 citato per nome
+  (es. "la passione comune per [interesse]"), MAI inventato se non
+  presente nei dati, MAI se l'elenco è vuoto.
+- Almeno 1 area di attenzione REALE, ancorata alla sotto-dimensione o
+  dimensione con punteggio più basso — non una frase vaga come
+  "potrebbe volerci del dialogo" senza nominare cosa, sempre a livello
+  di dinamica di coppia.
+
+Se una frase che stai per scrivere potrebbe valere per una coppia
+diversa senza cambiare una parola, riscrivila o scartala.
+
+## Cosa scegliere se ci sono troppi dati
+Non provare a citare tutto. Scegli le 2-3 sotto-dimensioni con
+punteggio di compatibilità più alto per i punti di forza, e quella con
+punteggio più basso (comunque un abbinamento già validato dal sistema
+di scoring, mai sotto soglia) per l'area di attenzione. Meglio 3
+osservazioni vere e specifiche che un elenco completo annacquato.
+
+## Regola aggiuntiva — mai citare sovrapposizioni negative dalle liste tag
+Le sovrapposizioni POSITIVE che ricevi (interesse condiviso, o "cerco X"
+che combacia con "sono/amo X" dell'altro) sono materiale sicuro da citare
+come punto di forza. Non ricevi mai le sovrapposizioni NEGATIVE (un
+rifiuto esplicito di uno che coincide con un gusto dichiarato dell'altro)
+— se in futuro dovessi mai vedere un dato che sembra un rifiuto o un
+"non sopporto", NON usarlo comunque nel testo, nemmeno in forma attenuata
+o come area di attenzione generica: non è materiale per questo report.
+
 ## Regole di tono assolute
 - Caldo, costruttivo, mai clinico o giudicante verso nessuna delle due persone.
-- Mai un numero, una percentuale o un punteggio nel testo.
+- Mai un'etichetta clinica, un numero, una percentuale o un punteggio
+  esposto direttamente nel testo ("compatibilità 82%", "Nevroticismo alto").
 - Vietate le parole "disturbo", "patologia", "diagnosi", "disfunzionale",
   "incompatibili", "incompatibilità", o equivalenti.
-- Ogni area di attenzione va sempre bilanciata da un punto di forza reale
-  nello stesso testo, mai un elenco di soli rischi.
-- Non attribuire mai un tratto/difetto a UNA delle due persone in modo
-  isolato e negativo ("lei è troppo ansiosa") — descrivi sempre la
-  DINAMICA di coppia, mai un giudizio individuale.
+- Ogni area di attenzione va sempre bilanciata dai punti di forza dello
+  stesso testo, mai un elenco di soli rischi, e va sempre formulata come
+  opportunità di dialogo, mai come un difetto.
+- Pubblico duale: nessuna frase — punto di forza o area di attenzione,
+  stessa regola per entrambi, senza eccezioni — può essere scritta in un
+  modo che l'altro partner riconosca come riferita specificamente a una
+  persona. Riformula sempre a livello di dinamica di coppia condivisa
+  ("nei ritmi quotidiani potreste trovare stili diversi da armonizzare"),
+  mai come attribuzione individuale ("a X capita di rimandare le cose").
+- **Schema sintattico esplicitamente vietato:** "[tratto A] si unisce
+  a / si affianca a / incontra [tratto B]", dove A e B sono due qualità
+  psicologiche diverse. Questa costruzione implica due fonti distinte
+  anche senza nominarle — ciascun partner sa quale dei due tratti
+  possiede, quindi deduce per esclusione a chi si riferisce l'altro. Non
+  è ammessa nemmeno quando entrambi i tratti sono positivi. Riformula
+  sempre come un RISULTATO EMERGENTE CONDIVISO (l'effetto della
+  combinazione, non i due ingredienti nominati separatamente): non "la
+  coscienziosità di uno si unisce alla flessibilità dell'altro", ma "la
+  vostra coppia trova un equilibrio naturale tra ordine e adattabilità"
+  — la qualità resta descritta, la sua origine individuale no.
 
-## Struttura del testo (senza titoli/numerazione visibili)
-1. Apertura breve che inquadra il tipo di incontro che i punteggi suggeriscono.
-2. 2-3 punti di forza concreti della coppia — dove i due profili si
-   completano o si rafforzano a vicenda, riconducibili ai punteggi forniti.
-3. 1-2 aree dove potrebbe servire più comunicazione o compromesso — sempre
-   proposte come spunti da esplorare insieme, mai come un limite fisso.
+## Formato di output — a punti, non prosa continua
+Il formato a punti non è solo leggibilità: isolando ogni punto di forza a
+UNA sola categoria, elimina strutturalmente la possibilità di intrecciare
+due tratti diversi nella stessa frase — lo schema sintattico vietato sopra
+diventa quasi impossibile da produrre per costruzione, non solo per regola.
 
-Lunghezza: 150-280 parole. Prosa scorrevole, nessun elenco puntato.
+Struttura fissa:
+1. Una riga di apertura, calda, generica (non ha bisogno di citare un
+   dato specifico — è solo il tono d'ingresso).
+2. "Cosa vi avvicina" — 2-3 punti, uno per categoria (Valori, Apertura
+   mentale, Interessi condivisi dalle liste, ecc.). Ogni punto nomina
+   esplicitamente la categoria, seguita da una frase breve (15-25 parole)
+   che descrive la qualità come condivisa o come dinamica di coppia —
+   mai come "il tratto di uno + il tratto dell'altro".
+3. "Su cosa vale la pena dialogare" — 1 solo punto (mai di più: un'area
+   di attenzione sola, ben scelta, non un elenco di difetti), stessa
+   struttura, stesso vincolo di anonimato reciproco.
 
-## Materiale in input
-Riceverai in formato strutturato: il punteggio di compatibilità finale
-già calcolato, il grado di corrispondenza sui criteri graditi, la
-coerenza tra valori/aspirazioni emersa dal Test Profilo Relazionale, e i
-punteggi dei quattro test psicometrici di entrambe le persone (Big Five,
-Attaccamento, EQ, Test Profilo Relazionale). Usali come UNICA fonte per
-le tue osservazioni — non inventare fatti biografici o dettagli non
-riconducibili a questi punteggi.
+Lunghezza: la riga di apertura è una frase; ogni punto 15-25 parole; 2-3
+punti in "Cosa vi avvicina" + 1 in "Su cosa vale la pena dialogare" —
+totale indicativo 120-180 parole, più contenuto nella struttura che nella
+prosa.
+
+## Frasi vietate (troppo generiche per superare la regola di citazione)
+Non usare, in nessuna forma equivalente, frasi come:
+- "due mondi che si incontrano"
+- "una connessione che va oltre le parole"
+- "fin dal primo sguardo/momento"
+- "trovare lo stesso ritmo" (senza nominare la sotto-dimensione)
+- qualunque frase che, letta da sola, potrebbe descrivere una coppia a
+  caso — chiediti: "questa frase citerebbe un dato diverso se i profili
+  fossero diversi?". Se la risposta è no, riscrivila.
+
+## Esempio di output atteso (dati fittizi, SOLO per calibrare tono e
+struttura — usa questo formato, MAI riusare questo testo o queste frasi)
+
+Il vostro abbinamento nasce da alcune affinità concrete, insieme a
+un'area su cui vale la pena costruire dialogo fin da subito.
+
+Cosa vi avvicina:
+• Valori — Per entrambi la famiglia resta un punto fermo nei progetti
+  di vita: un terreno comune su cui costruire senza dover mediare troppo.
+• Apertura mentale — Condividete una curiosità simile verso idee e
+  prospettive nuove, che raramente lascia le vostre conversazioni a
+  corto di stimoli.
+• Interessi — La passione condivisa per gli animali è un piccolo
+  dettaglio che spesso conta più di quanto sembri.
+
+Su cosa vale la pena dialogare:
+• Dinamica relazionale — Nei ritmi quotidiani potreste avere bisogni
+  diversi di spazio e vicinanza: parlarne apertamente fin dall'inizio
+  aiuta a trovare un equilibrio naturale.
+
+Nota come ogni punto di forza resti isolato alla propria categoria —
+nessuno intreccia due tratti psicologici diversi nella stessa frase.
 
 ## Output
-Solo il testo della sintesi, nessun titolo, nessun preambolo tipo "Ecco
-la sintesi:", nessun markdown."""
+Solo il testo del report nel formato a punti sopra, nessun titolo
+aggiuntivo, nessun preambolo tipo "Ecco il report:", nessuna intestazione
+tecnica (non scrivere letteralmente "Formato a punti" — è un'istruzione
+per te, non per l'utente), nessun markdown oltre al simbolo "•" per i
+punti elenco."""
 
 
 def genera_analisi_caratteriale_coppia(punteggi_coppia: dict) -> str:

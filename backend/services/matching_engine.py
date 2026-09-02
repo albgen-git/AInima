@@ -61,6 +61,16 @@ ALGORITMO_VERSIONE = "stable_v8"
 # di restare nascosto dentro la media (Ainima_Liste_Piace_Detesta_v1.md §5).
 SOGLIA_RIFIUTO_ESPLICITO = 0.7
 
+# Soglia minima di similarità (dopo la correzione anisotropia, v. CLAUDE.md
+# 2026-08-20) perché una coppia di tag venga riportata come "sovrapposizione
+# positiva citabile" nel dettaglio usato dal report di coppia (RF-12) — non
+# influenza il punteggio (Punteggio_Tag_Liste resta la media di TUTTI i best
+# match, sopra o sotto soglia), serve solo a non far citare all'LLM un
+# accostamento che è in realtà rumore statistico (calibrata sugli stessi
+# valori osservati allora: coppie scollegate/senza senso ~0.0-0.15,
+# sinonimi deboli >=0.5).
+SOGLIA_TAG_CITABILE = 0.3
+
 
 def cosine(v1, v2):
     v1, v2 = np.array(v1), np.array(v2)
@@ -160,22 +170,28 @@ def punteggio_narrativo_strutturato(a, b):
     (26 item, self vs partner ideale), bidirezionale come la vecchia
     versione ma per sotto-dimensione invece che sull'intero profilo.
 
-    Ritorna (punteggio, flag_asimmetria_narrativa): il flag scatta se ANCHE
-    UNA SOLA sotto-dimensione ha uno scarto > 0.5 tra le due direzioni —
-    un'asimmetria forte e localizzata non va mediata via silenziosamente
-    (stesso principio già applicato a flag_rifiuto_esplicito).
+    Ritorna (punteggio, flag_asimmetria_narrativa, dettaglio_sottodimensioni):
+    il flag scatta se ANCHE UNA SOLA sotto-dimensione ha uno scarto > 0.5 tra
+    le due direzioni — un'asimmetria forte e localizzata non va mediata via
+    silenziosamente (stesso principio già applicato a flag_rifiuto_esplicito).
+    `dettaglio_sottodimensioni` è una lista di dict {categoria, sottodimensione,
+    punteggio} per tutte e 13 le sotto-dimensioni — prima veniva calcolato e
+    scartato subito dopo l'aggregazione; ora sopravvive per chi ha bisogno del
+    dettaglio (RF-12, v. services/couple_analysis.py) invece del solo numero
+    aggregato, senza cambiare l'aritmetica del punteggio stesso.
 
-    Ritorna (0.5, False) — neutro, non un segnale di incompatibilità — se
+    Ritorna (0.5, False, []) — neutro, non un segnale di incompatibilità — se
     manca anche un solo profilo_*_self/partner_ideale per uno dei due lati
     (dato non ancora disponibile, stesso trattamento della vecchia versione
     per l'embedding mancante)."""
     campi = [f"profilo_{cat}_self" for cat in SOTTODIMENSIONI_PROFILO_RELAZIONALE] + \
             [f"profilo_{cat}_partner_ideale" for cat in SOTTODIMENSIONI_PROFILO_RELAZIONALE]
     if any(a[campo] is None or b[campo] is None for campo in campi):
-        return 0.5, False
+        return 0.5, False, []
 
     flag_asimmetria = False
     punteggi_categoria = []
+    dettaglio_sottodimensioni = []
     for categoria, sottodim in SOTTODIMENSIONI_PROFILO_RELAZIONALE.items():
         a_self, a_ideale = a[f"profilo_{categoria}_self"], a[f"profilo_{categoria}_partner_ideale"]
         b_self, b_ideale = b[f"profilo_{categoria}_self"], b[f"profilo_{categoria}_partner_ideale"]
@@ -183,13 +199,15 @@ def punteggio_narrativo_strutturato(a, b):
         for d in sottodim:
             coerenza_a_verso_b = 1 - abs(a_self[d] - b_ideale[d])
             coerenza_b_verso_a = 1 - abs(b_self[d] - a_ideale[d])
-            compatibilita_sottodim.append((coerenza_a_verso_b + coerenza_b_verso_a) / 2)
+            media = (coerenza_a_verso_b + coerenza_b_verso_a) / 2
+            compatibilita_sottodim.append(media)
+            dettaglio_sottodimensioni.append({"categoria": categoria, "sottodimensione": d, "punteggio": media})
             if abs(coerenza_a_verso_b - coerenza_b_verso_a) > 0.5:
                 flag_asimmetria = True
         punteggi_categoria.append(sum(compatibilita_sottodim) / len(compatibilita_sottodim))
 
     punteggio = sum(punteggi_categoria) / len(punteggi_categoria)
-    return punteggio, flag_asimmetria
+    return punteggio, flag_asimmetria, dettaglio_sottodimensioni
 
 
 def tag_overlap_score(source_embs, target_embs):
@@ -211,6 +229,31 @@ def tag_overlap_score(source_embs, target_embs):
     return sum(migliori) / len(migliori)
 
 
+def _migliori_coppie_tag(source_tags, source_embs, target_tags, target_embs):
+    """Come tag_overlap_score, ma invece del solo numero aggregato ritorna
+    QUALI coppie di tag hanno prodotto una buona similarità — solo per le
+    liste POSITIVE (mi_piace/partner_vorrei), mai per i rifiuti (v.
+    punteggio_tag_liste sotto: questa funzione non riceve mai le liste
+    rifiuti_a/rifiuti_b). Filtra sotto SOGLIA_TAG_CITABILE per non riportare
+    un accostamento che è solo rumore statistico. Ritorna una lista di dict
+    {tag_a, tag_b, similarita}, ordinata per similarità decrescente — usata
+    da couple_analysis.py per dare all'LLM un interesse condiviso REALE da
+    citare per nome, mai inventato (v. Ainima_Prompt_Report_Abbinamento_v1.md)."""
+    if not source_tags or not target_tags:
+        return []
+    risultato = []
+    for tag_s, emb_s in zip(source_tags, source_embs):
+        similarita = [cosine(emb_s, emb_t) for emb_t in target_embs]
+        idx_migliore = max(range(len(similarita)), key=lambda i: similarita[i])
+        if similarita[idx_migliore] >= SOGLIA_TAG_CITABILE:
+            risultato.append({
+                "tag_a": tag_s, "tag_b": target_tags[idx_migliore],
+                "similarita": similarita[idx_migliore],
+            })
+    risultato.sort(key=lambda r: -r["similarita"])
+    return risultato
+
+
 def punteggio_tag_liste(a, b):
     """Ainima_Liste_Piace_Detesta_v1.md §4-5. Le 3 componenti:
     - Interessi_Comuni: quanto A.mi_piace e B.mi_piace si assomigliano
@@ -226,7 +269,14 @@ def punteggio_tag_liste(a, b):
     viene esclusa dalla media pesata invece di contare come 0 — un campo
     non compilato è un dato mancante, non un disallineamento.
 
-    Ritorna (punteggio: float|None, flag_rifiuto_esplicito: bool)."""
+    Ritorna (punteggio: float|None, flag_rifiuto_esplicito: bool,
+    dettaglio_positivo: list) — `dettaglio_positivo` copre SOLO le due
+    componenti positive (interessi comuni + corrispondenza desideri): la
+    funzione non tocca mai rifiuti_a/rifiuti_b per costruirlo, così è
+    strutturalmente impossibile che un rifiuto esplicito finisca nel
+    dettaglio citabile (v. CLAUDE.md, richiesta esplicita dell'utente —
+    flag_rifiuto_esplicito resta interno all'algoritmo, mai nel testo di
+    un report)."""
     def _media_bidirezionale(fwd, bwd):
         valori = [v for v in (fwd, bwd) if v is not None]
         return sum(valori) / len(valori) if valori else None
@@ -252,7 +302,7 @@ def punteggio_tag_liste(a, b):
     if interessi_comuni is not None:
         pesate.append((interessi_comuni, 0.4))
     if not pesate:
-        return None, False
+        return None, False, []
 
     punteggio = sum(v * w for v, w in pesate) / sum(w for _, w in pesate)
     if penalita_rifiuti is not None:
@@ -260,7 +310,13 @@ def punteggio_tag_liste(a, b):
     punteggio = min(1.0, max(0.0, punteggio))
 
     flag_rifiuto_esplicito = penalita_rifiuti is not None and penalita_rifiuti > SOGLIA_RIFIUTO_ESPLICITO
-    return punteggio, flag_rifiuto_esplicito
+
+    dettaglio_positivo = (
+        _migliori_coppie_tag(a["mi_piace_tags"], a["mi_piace_emb"], b["mi_piace_tags"], b["mi_piace_emb"])
+        + _migliori_coppie_tag(a["partner_vorrei_tags"], a["partner_vorrei_emb"], b["mi_piace_tags"], b["mi_piace_emb"])
+        + _migliori_coppie_tag(b["partner_vorrei_tags"], b["partner_vorrei_emb"], a["mi_piace_tags"], a["mi_piace_emb"])
+    )
+    return punteggio, flag_rifiuto_esplicito, dettaglio_positivo
 
 
 def soft_score(a, b):
@@ -290,10 +346,13 @@ def combina_soft_e_distanza(seeker, cand, punteggio_distanza):
     Detesta_v1.md §6, stable_v4) — ciascuno escluso dalla media se non
     disponibile (dato mancante), mai trattato come 0.
 
-    Ritorna (punteggio: float, flag_rifiuto_esplicito: bool) — il flag va
-    esposto nel report/admin, non lasciato nascosto dentro la media."""
+    Ritorna (punteggio: float, flag_rifiuto_esplicito: bool,
+    dettaglio_tag_positivo: list) — il flag va esposto nel report/admin, non
+    lasciato nascosto dentro la media. `dettaglio_tag_positivo` (v.
+    punteggio_tag_liste) contiene SOLO sovrapposizioni positive citabili —
+    mai alcun dato riconducibile a flag_rifiuto_esplicito."""
     preferenze = (soft_score(seeker, cand) + soft_score(cand, seeker)) / 2
-    punteggio_tag, flag_rifiuto_esplicito = punteggio_tag_liste(seeker, cand)
+    punteggio_tag, flag_rifiuto_esplicito, dettaglio_tag_positivo = punteggio_tag_liste(seeker, cand)
 
     componenti = [preferenze]
     if punteggio_distanza is not None:
@@ -301,7 +360,7 @@ def combina_soft_e_distanza(seeker, cand, punteggio_distanza):
     if punteggio_tag is not None:
         componenti.append(punteggio_tag)
 
-    return sum(componenti) / len(componenti), flag_rifiuto_esplicito
+    return sum(componenti) / len(componenti), flag_rifiuto_esplicito, dettaglio_tag_positivo
 
 
 def valuta_distanza(seeker, cand, dist_km, cfg):
@@ -389,7 +448,9 @@ def load_pool(cur):
                ps.confidenza_big5_estroversione, ps.confidenza_big5_gradevolezza,
                ps.confidenza_big5_coscienziosita, ps.confidenza_big5_nevroticismo,
                ps.confidenza_big5_apertura,
-               ps.score_maturita_emotiva, ps.ansia_score, ps.evitamento_score,
+               ps.score_maturita_emotiva, ps.ansia_score, ps.evitamento_score, ps.stile_attaccamento,
+               ps.eq_pilastro_autoconsapevolezza, ps.eq_pilastro_autoregolazione,
+               ps.eq_pilastro_empatia, ps.eq_pilastro_responsabilita,
                ps.flag_profilo_per_revisione_dati,
                ps.profilo_valori_self, ps.profilo_valori_partner_ideale,
                ps.profilo_stile_vita_self, ps.profilo_stile_vita_partner_ideale,
@@ -454,8 +515,12 @@ def load_pool(cur):
         # un tag non ancora in cache (dato non ancora elaborato) viene
         # semplicemente escluso da questo confronto, invece di far fallire
         # l'intero calcolo — difensivo, non dovrebbe succedere se
-        # l'endpoint di salvataggio ha già calcolato l'embedding.
-        return [embedding_per_tag_centrato[t] for t in (tags or []) if t in embedding_per_tag_centrato]
+        # l'endpoint di salvataggio ha già calcolato l'embedding. Ritorna
+        # (tag, embedding) appaiati e nello stesso ordine filtrato, cosi chi
+        # ha bisogno anche del NOME del tag (non solo dell'embedding per lo
+        # scoring, v. _migliori_coppie_tag) può risalirci senza un secondo
+        # filtro separato che rischierebbe di disallinearsi dal primo.
+        return [(t, embedding_per_tag_centrato[t]) for t in (tags or []) if t in embedding_per_tag_centrato]
 
     pool = {}
     for r in righe:
@@ -488,6 +553,15 @@ def load_pool(cur):
             "conf_apertura": r["confidenza_big5_apertura"] if r["confidenza_big5_apertura"] is not None else 1.0,
             "ansia": r["ansia_score"] if r["ansia_score"] is not None else 0.5,
             "evitamento": r["evitamento_score"] if r["evitamento_score"] is not None else 0.5,
+            # Non usati da alcuna funzione di scoring (bigfive_score/eq_score
+            # leggono solo i campi sopra) — presenti nel pool solo come dato
+            # descrittivo per chi ne ha bisogno a valle (RF-12/RF-28, stesso
+            # trattamento già riservato a nome/cognome/foto_profilo_url).
+            "stile_attaccamento": r["stile_attaccamento"],
+            "eq_pilastro_autoconsapevolezza": r["eq_pilastro_autoconsapevolezza"],
+            "eq_pilastro_autoregolazione": r["eq_pilastro_autoregolazione"],
+            "eq_pilastro_empatia": r["eq_pilastro_empatia"],
+            "eq_pilastro_responsabilita": r["eq_pilastro_responsabilita"],
             "flag_revisione": r["flag_profilo_per_revisione_dati"],
             # Test Profilo Relazionale (Blocco D — v. CLAUDE.md): dict già
             # deserializzati da psycopg2 (colonne JSONB), None se il test non
@@ -501,11 +575,14 @@ def load_pool(cur):
             "profilo_dinamica_relazionale_partner_ideale": r["profilo_dinamica_relazionale_partner_ideale"],
             "profilo_aspirazioni_self": r["profilo_aspirazioni_self"],
             "profilo_aspirazioni_partner_ideale": r["profilo_aspirazioni_partner_ideale"],
-            "mi_piace_emb": _risolvi(r["mi_piace_tags"]),
-            "non_sopporto_emb": _risolvi(r["non_sopporto_tags"]),
-            "partner_vorrei_emb": _risolvi(r["partner_vorrei_tags"]),
-            "partner_non_vorrei_emb": _risolvi(r["partner_non_vorrei_tags"]),
         }
+        for campo, tags_grezzi in (
+            ("mi_piace", r["mi_piace_tags"]), ("non_sopporto", r["non_sopporto_tags"]),
+            ("partner_vorrei", r["partner_vorrei_tags"]), ("partner_non_vorrei", r["partner_non_vorrei_tags"]),
+        ):
+            coppie = _risolvi(tags_grezzi)
+            pool[r["user_id"]][f"{campo}_tags"] = [t for t, _ in coppie]
+            pool[r["user_id"]][f"{campo}_emb"] = [e for _, e in coppie]
     return pool
 
 
@@ -601,8 +678,8 @@ def find_best_match(seeker_id, pool, cfg):
             continue
         bf = bigfive_score(seeker, cand)
         eq = eq_score(seeker, cand)
-        narrativa, flag_asimmetria_narrativa = punteggio_narrativo_strutturato(seeker, cand)
-        soft, flag_rifiuto_esplicito = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
+        narrativa, flag_asimmetria_narrativa, _ = punteggio_narrativo_strutturato(seeker, cand)
+        soft, flag_rifiuto_esplicito, _ = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
         candidati.append({"id": cand_id, "cand": cand, "dist": dist, "bf": bf, "eq": eq,
@@ -680,8 +757,8 @@ def build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati):
             continue
         bf = bigfive_score(seeker, cand)
         eq = eq_score(seeker, cand)
-        narrativa, _ = punteggio_narrativo_strutturato(seeker, cand)
-        soft, _ = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
+        narrativa, _, _ = punteggio_narrativo_strutturato(seeker, cand)
+        soft, _, _ = combina_soft_e_distanza(seeker, cand, punteggio_distanza)
         final = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                  cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
         if final < cfg["soglia_minima_proposta"]:
@@ -804,10 +881,10 @@ def run_monthly_batch(conn, dry_run=True):
             scritti.add(cand_id)
             bf = bigfive_score(pool[uid], pool[cand_id])
             eq = eq_score(pool[uid], pool[cand_id])
-            narrativa, flag_asimmetria_narrativa = punteggio_narrativo_strutturato(pool[uid], pool[cand_id])
+            narrativa, flag_asimmetria_narrativa, _ = punteggio_narrativo_strutturato(pool[uid], pool[cand_id])
             dist = haversine_km(pool[uid]["lon"], pool[uid]["lat"], pool[cand_id]["lon"], pool[cand_id]["lat"])
             _, punteggio_distanza = valuta_distanza(pool[uid], pool[cand_id], dist, cfg)
-            soft, flag_rifiuto_esplicito = combina_soft_e_distanza(pool[uid], pool[cand_id], punteggio_distanza)
+            soft, flag_rifiuto_esplicito, _ = combina_soft_e_distanza(pool[uid], pool[cand_id], punteggio_distanza)
             final_score = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                            cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
             # true se, per almeno uno dei due lati, questo partner è il suo

@@ -30,14 +30,24 @@ CHAT_INTERVISTA_ATTIVA = False
 # 2026-08-21 (v. CLAUDE.md — dopo il Blocco D): Prompt 3a/3b (estrazione
 # profilo canonico) + l'embedding testuale sono stati trovati orfani —
 # scrivono self_profile_canonico/ideal_partner_profile_canonico/
-# self_embedding_vector/ideal_embedding_vector, ma NESSUN codice li rilegge
-# oggi (Prompt 5, il generatore del report che dovrebbe consumarli, non è
-# mai stato implementato — solo un endpoint stub che legge una colonna che
-# nessuno scrive). In pausa per non continuare a pagare chiamate LLM/
-# embedding reali per un output che nessuno usa — riattivare insieme
-# all'implementazione di Prompt 5, non prima. I due campi liberi
-# (descrizione_di_se/descrizione_partner_ideale) continuano a salvarsi
-# normalmente: solo la trasformazione derivata è sospesa.
+# self_embedding_vector/ideal_embedding_vector, ma NESSUN codice li rilegge.
+# In pausa per non continuare a pagare chiamate LLM/embedding reali per un
+# output che nessuno usa. I due campi liberi (descrizione_di_se/
+# descrizione_partner_ideale) continuano a salvarsi normalmente: solo la
+# trasformazione derivata è sospesa.
+#
+# 2026-09-02 (v. CLAUDE.md, audit richiesto dall'utente — commento
+# precedente ormai stale, corretto qui): Prompt 5 ESISTE ed è collegato
+# davvero (services/personal_report.py + llm_pipeline.genera_report_
+# prontezza_relazionale, scrive sulla tabella personal_report, non sulla
+# colonna report_prontezza_relazionale — rimossa il 2026-08-31 perché mai
+# scritta da nessun codice). Il report personale però non ha MAI avuto
+# bisogno di self_profile_canonico/self_embedding_vector: legge
+# direttamente i punteggi grezzi già aggregati di psychometric_scores
+# (score_big5_*, profilo_*_self, ecc.). Questo flag resta False non perché
+# "Prompt 5 non esiste ancora", ma perché il profilo canonico + embedding
+# testuale di Prompt 3a/3b restano orfani per davvero — nessun consumatore
+# nel codice, indipendentemente da Prompt 5.
 GENERAZIONE_PROFILO_CANONICO_ATTIVA = False
 
 def _tenta_report_personale(conn, cur, user_id: UUID):
