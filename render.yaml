@@ -36,8 +36,13 @@ services:
         value: resend
       - key: RESEND_API_KEY
         sync: false
+      # Dominio ainima.it verificato su Resend (record DKIM/SPF/DMARC
+      # confermati live il 2026-09-02) — sostituisce il dominio sandbox
+      # onboarding@resend.dev, che consegnava solo all'email del titolare
+      # dell'account Resend e bloccava ogni test verso altri indirizzi
+      # (es. danaestefania.al@gmail.com).
       - key: RESEND_FROM_EMAIL
-        value: onboarding@resend.dev
+        value: onboarding@ainima.it
       # Moderazione contenuti fotografici — nessun provider ancora scelto
       # nel progetto (v. CLAUDE.md), 'none' è il default sicuro esistente.
       - key: CONTENT_MODERATION_PROVIDER
