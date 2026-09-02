@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from db import get_conn
 from schemas.users import ProfileUpdate
+from services import geocoding
 from services.content_moderation import get_content_moderation_provider
 from services.photo_storage import get_photo_storage
 
@@ -104,6 +105,18 @@ def aggiorna_profilo(user_id: UUID, payload: ProfileUpdate):
     if payload.lat is not None and payload.lon is not None:
         cur.execute("UPDATE socio_profile SET coordinate_gps = point(%s, %s) WHERE user_id = %s",
                     (payload.lon, payload.lat, str(user_id)))
+    elif dati.get("comune_residenza"):
+        # RF-06: il frontend invia solo testo libero (comune_residenza), mai
+        # lat/lon diretti — geocodifica automatica (v. services/geocoding.py:
+        # dataset comuni italiani -> dataset citta UAE -> Nominatim) per
+        # popolare comunque coordinate_gps, senza richiedere un autocomplete
+        # lato UI. Fallimento silenzioso (None): non blocca il salvataggio
+        # del resto del profilo, lascia solo le coordinate come sono.
+        coords = geocoding.geocodifica_comune(dati["comune_residenza"])
+        if coords is not None:
+            lat, lon = coords
+            cur.execute("UPDATE socio_profile SET coordinate_gps = point(%s, %s) WHERE user_id = %s",
+                        (lon, lat, str(user_id)))
 
     if payload.importanza_vicinanza_geografica is not None:
         # stessa normalizzazione 1-5 -> 0.0-1.0 usata per i punteggi Big Five
