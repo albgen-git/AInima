@@ -59,6 +59,9 @@
       "interestTags": "Gusti e preferenze",
       "summary": "Riepilogo"
     },
+    "sessionCheck": {
+      "checking": "Verifica del tuo account in corso..."
+    },
     "email": {
       "title": "Iniziamo",
       "subtitle": "Inserisci la tua email: ti invieremo un codice per accedere o registrarti, senza bisogno di una password.",

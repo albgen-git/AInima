@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PageShell, ProgressSteps } from "@/components/ui";
+import { PageShell, ProgressSteps, Spinner } from "@/components/ui";
 import { LocaleSwitcher } from "@/components/layout/LocaleSwitcher";
 import { authApi } from "@/lib/api";
 import { clearUserId, getUserId } from "@/lib/session";
@@ -68,9 +68,20 @@ const STEP_BASIC_INFO_INDEX = 2; // primo step sensato per chi ha già una sessi
 
 export default function OnboardingPage() {
   const t = useTranslations("onboarding.steps");
+  const tVerifica = useTranslations("onboarding.sessionCheck");
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [state, setState] = useState<WizardState>(initialWizardState);
+  // Vero SOLO mentre risolviStepDaStato() è in corso — sul piano gratuito
+  // di Render il backend si "addormenta" dopo un periodo di inattività e
+  // la primissima richiesta dopo la pausa può impiegare diversi secondi:
+  // senza questo stato la pagina restava visivamente ferma sullo step
+  // Email durante l'attesa, sembrando bloccata/rotta invece che solo lenta
+  // (comportamento reale verificato dal vivo — il redirect arriva sempre,
+  // solo in ritardo, v. CLAUDE.md). Parte già a true quando c'è una
+  // sessione da verificare, per non mostrare mai lo step Email anche solo
+  // per un istante a chi ha già un account.
+  const [verificandoSessione, setVerificandoSessione] = useState(() => getUserId() !== null);
 
   // Estratta perché serve in DUE momenti, non solo al mount: (1) chi arriva
   // con uno user_id già in localStorage (refresh/ritorno diretto), (2) chi
@@ -81,6 +92,7 @@ export default function OnboardingPage() {
   // già completato — un utente di ritorno (logout + nuovo login via email
   // OTP) si ritrovava daccapo invece che in dashboard o al passo giusto.
   async function risolviStepDaStato(userId: string) {
+    setVerificandoSessione(true);
     try {
       const status = await authApi.getOnboardingStatus(userId);
       // "Attivo" (i 6 campi del gate RF-09) non implica che narrativa/liste
@@ -94,7 +106,7 @@ export default function OnboardingPage() {
       const nienteDaCompletare = status.primo_passo_incompleto >= STEP_SUMMARY_INDEX;
       if (status.stato_account === "Attivo" && nienteDaCompletare) {
         router.replace("/dashboard");
-        return;
+        return; // niente setVerificandoSessione(false): la pagina sta per cambiare
       }
       setState((s) => ({ ...s, userId }));
       setStepIndex(Math.max(status.primo_passo_incompleto, STEP_BASIC_INFO_INDEX));
@@ -102,6 +114,8 @@ export default function OnboardingPage() {
       // user_id non più valido (es. DB di test ripulito) — meglio ripartire
       // da zero che restare bloccati su uno stato invalido.
       clearUserId();
+    } finally {
+      setVerificandoSessione(false);
     }
   }
 
@@ -110,7 +124,10 @@ export default function OnboardingPage() {
     // restare in un effect per evitare mismatch di idratazione, anche se
     // il render iniziale mostrerà per un istante lo step email.
     const existingId = getUserId();
-    if (!existingId) return;
+    if (!existingId) {
+      setVerificandoSessione(false);
+      return;
+    }
     risolviStepDaStato(existingId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -130,6 +147,24 @@ export default function OnboardingPage() {
   const steps = STEP_KEYS.map((key) => t(key));
 
   const commonProps = { state, update, onNext: next, onBack: back };
+
+  // Mentre verifica una sessione esistente (v. sopra): mai lo step Email,
+  // sempre e solo questo messaggio — evita che una risposta lenta del
+  // backend (piano gratuito Render, "risveglio" dopo inattività) sembri un
+  // wizard resettato invece di un caricamento in corso.
+  if (verificandoSessione) {
+    return (
+      <main className="flex flex-1 justify-center">
+        <LocaleSwitcher className="fixed right-6 top-6" />
+        <PageShell>
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <Spinner />
+            <p className="text-sm text-slate">{tVerifica("checking")}</p>
+          </div>
+        </PageShell>
+      </main>
+    );
+  }
 
   return (
     <main className="flex flex-1 justify-center">

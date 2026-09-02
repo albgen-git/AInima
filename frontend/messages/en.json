@@ -59,6 +59,9 @@
       "interestTags": "Likes & dislikes",
       "summary": "Summary"
     },
+    "sessionCheck": {
+      "checking": "Checking your account..."
+    },
     "email": {
       "title": "Let's get started",
       "subtitle": "Enter your email and we'll send you a code to sign in or register — no password needed.",
