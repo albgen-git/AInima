@@ -51,21 +51,36 @@ services/face_recognition.py). Rompe deliberatamente la purezza
 computazionale del resto di questo modulo (nessun'altra funzione qui fa
 chiamate di rete) — isolato in seleziona_per_somiglianza_visiva()/
 somiglianza_visiva(), unico punto del file con questo effetto collaterale.
-Resta BIDIREZIONALE (media delle due direzioni quando entrambe
-calcolabili) — non per compensare un'asimmetria di modello come in
+Resta BIDIREZIONALE — non per compensare un'asimmetria di modello come in
 stable_v1 (CompareFaces non ha quel problema), ma per intento di
 prodotto confermato dall'utente il 2026-09-03: l'abbinamento visivo deve
 premiare la coppia in cui ENTRAMBE le persone somigliano all'ideale
-dichiarato dall'altra, non solo una delle due direzioni. Uno scostamento
-esplicito dal design precedente resta, segnalato all'utente: NESSUNA
-soglia minima di similarità — la calibrazione a percentile di stable_v5
-(nata per un problema specifico di ArcFace: il 90° percentile tra coppie
-casuali era già statisticamente alto quanto la vecchia soglia fissa) non
-si applica a un punteggio di confidenza "stessa persona" come
-CompareFaces, dove anche un valore basso resta comunque il migliore
-disponibile in shortlist. embedding_visivo_profilo/
+dichiarato dall'altra, non solo una delle due direzioni. Aggregazione a
+MEDIA GEOMETRICA (√(A×B)), non aritmetica — trovato dal vivo (due test di
+abbinamento reali, v. CLAUDE.md) che la media aritmetica lascia una
+direzione fortemente asimmetrica (es. 82 in un verso, 0.2 nell'altro)
+produrre comunque un punteggio medio-alto (41), esattamente il difetto
+che l'intento "ENTRAMBE le persone" avrebbe dovuto escludere — una media
+aritmetica pesa la SOMMA del segnale, non quanto è bilanciato tra le due
+direzioni. La media geometrica collassa verso 0 se anche una sola
+direzione è vicina a 0 (stesso caso: √(82×0.2) ≈ 4), pur non essendo
+binaria come il minimo puro — scelta esplicita dell'utente tra le due
+alternative. Se una sola direzione è calcolabile (foto mancante da un
+lato, non un vero segnale di dissomiglianza), si usa quella disponibile
+senza penalità — la media geometrica si applica solo quando ENTRAMBE le
+direzioni sono note. Uno scostamento esplicito dal design precedente
+resta, segnalato all'utente: NESSUNA soglia minima di similarità — la
+calibrazione a percentile di stable_v5 (nata per un problema specifico di
+ArcFace: il 90° percentile tra coppie casuali era già statisticamente
+alto quanto la vecchia soglia fissa) non si applica a un punteggio di
+confidenza "stessa persona" come CompareFaces, dove anche un valore basso
+resta comunque il migliore disponibile in shortlist. embedding_visivo_profilo/
 embedding_visivo_partner_ideale non sono più letti da load_pool()
-(rimossi dallo schema — v. CLAUDE.md).
+(rimossi dallo schema — v. CLAUDE.md). Nessun match reale è mai stato
+creato/persistito con una versione precedente di questa logica (solo
+test ad-hoc su script), quindi questa nota descrive lo stato finale di
+stable_v9 in un unico blocco invece di frammentare la cronologia in più
+sotto-versioni mai realmente usate in produzione.
 """
 
 import json
@@ -635,30 +650,38 @@ def load_config_floats(cur):
 
 
 def somiglianza_visiva(seeker, cand):
-    """RF-11b via AWS Rekognition CompareFaces — BIDIREZIONALE (media delle
-    due direzioni quando entrambe calcolabili): ideale-del-cercatore vs
-    profilo-del-candidato, E ideale-del-candidato vs profilo-del-cercatore.
-    Intento di prodotto confermato dall'utente (2026-09-03): l'abbinamento
-    deve premiare la coppia in cui ENTRAMBE le persone somigliano
-    all'ideale dichiarato dall'altra, non solo una direzione — non è più,
-    come in stable_v1-v8, una contromisura per l'asimmetria di un modello
-    di identity-verification riadattato (ArcFace). Se una direzione non è
-    calcolabile (foto mancante da un lato, nessun volto rilevabile, errore
-    di rete/servizio — v. services/face_recognition.py), si usa solo
-    quella disponibile invece di far fallire l'intero confronto; None solo
-    se NESSUNA delle due direzioni è calcolabile."""
-    punteggi = []
+    """RF-11b via AWS Rekognition CompareFaces — BIDIREZIONALE: ideale-del-
+    cercatore vs profilo-del-candidato, E ideale-del-candidato vs
+    profilo-del-cercatore. Intento di prodotto confermato dall'utente
+    (2026-09-03): l'abbinamento deve premiare la coppia in cui ENTRAMBE le
+    persone somigliano all'ideale dichiarato dall'altra, non solo una
+    direzione.
+
+    Aggregazione a MEDIA GEOMETRICA (non aritmetica) quando ENTRAMBE le
+    direzioni sono calcolabili — scelta esplicita dell'utente dopo aver
+    trovato dal vivo che la media aritmetica lasciava passare coppie con
+    una direzione fortemente asimmetrica (es. 82 in un verso, 0.2
+    nell'altro → media aritmetica 41, comunque la migliore in shortlist):
+    pesa la SOMMA del segnale, non quanto è bilanciato tra le due
+    direzioni — esattamente il difetto che l'intento "ENTRAMBE le persone"
+    avrebbe dovuto escludere. La media geometrica collassa verso 0 se
+    anche una sola direzione è vicina a 0, senza essere binaria come il
+    minimo puro.
+
+    Se una sola direzione è calcolabile (foto mancante da un lato, non un
+    vero segnale di dissomiglianza — v. services/face_recognition.py), si
+    usa quella disponibile SENZA penalità geometrica: la richiesta di
+    "entrambe le direzioni forti" si applica solo quando entrambe sono
+    davvero note. None solo se NESSUNA delle due direzioni è calcolabile."""
+    dir_a = dir_b = None
     if seeker["foto_partner_ideale_url"] is not None and cand["foto_profilo_url"] is not None:
-        p = face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
-        if p is not None:
-            punteggi.append(p)
+        dir_a = face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
     if cand["foto_partner_ideale_url"] is not None and seeker["foto_profilo_url"] is not None:
-        p = face_recognition.confronta_foto(cand["foto_partner_ideale_url"], seeker["foto_profilo_url"])
-        if p is not None:
-            punteggi.append(p)
-    if not punteggi:
-        return None
-    return sum(punteggi) / len(punteggi)
+        dir_b = face_recognition.confronta_foto(cand["foto_partner_ideale_url"], seeker["foto_profilo_url"])
+
+    if dir_a is not None and dir_b is not None:
+        return math.sqrt(dir_a * dir_b)
+    return dir_a if dir_a is not None else dir_b
 
 
 def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n):
