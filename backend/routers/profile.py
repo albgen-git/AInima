@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from db import get_conn
 from schemas.users import ProfileUpdate
-from services import geocoding
+from services import face_recognition, geocoding
 from services.content_moderation import get_content_moderation_provider
 from services.photo_storage import get_photo_storage
 
@@ -153,42 +153,78 @@ def _modera_foto(cur, user_id: UUID, tipo_immagine: str, riferimento_immagine: s
     return risultato.esito
 
 
+def _valida_volto(file: UploadFile) -> face_recognition.ValidazioneVolto | None:
+    """RF-08c: DetectFaces sui byte grezzi, PRIMA di salvare — un upload
+    senza volto valido non deve mai arrivare a scrivere un file né una
+    riga DB. `file.file` va riportato all'inizio dopo la lettura, perché
+    PhotoStorage.salva() lo consuma di nuovo subito dopo (shutil.copyfileobj
+    / upload_fileobj leggono dalla posizione corrente dello stream).
+    Se la chiamata AWS stessa fallisce (rete/credenziali/timeout, non
+    "nessun volto") si degrada aperto — stesso principio già applicato a
+    services/content_moderation.py quando il provider è assente/in errore:
+    un disservizio esterno non deve bloccare un utente che carica una foto
+    legittima. Ritorna None in quel caso (nessuna validazione effettuata)."""
+    contenuto = file.file.read()
+    file.file.seek(0)
+    try:
+        return face_recognition.rileva_volto(contenuto)
+    except Exception as e:
+        print(f"[ERRORE] DetectFaces fallita, upload non bloccato: {e}")
+        return None
+
+
 @router.post("/profile-photo")
 def carica_foto_profilo(user_id: UUID, file: UploadFile = File(...)):
     """Salva il file (su R2 se configurato, altrimenti su disco locale —
-    v. services/photo_storage.py) + moderazione automatica (RF-06b). NON
-    calcola l'embedding visivo (richiede un modello di face-embedding tipo
-    ArcFace, non installato in questo ambiente — v. CLAUDE.md sulle
-    limitazioni di pgvector/DeepFace). embedding_visivo_profilo resta NULL
-    finché non gira una pipeline offline dedicata."""
+    v. services/photo_storage.py) + validazione volto (RF-08c, AWS
+    Rekognition DetectFaces) + moderazione automatica (RF-06b). Nessun
+    embedding visivo calcolato/salvato: il confronto di somiglianza
+    (RF-11b) è on-demand via CompareFaces al momento della proposta,
+    v. services/face_recognition.py e matching_engine.py."""
     conn = get_conn()
     cur = conn.cursor()
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
+    validazione = _valida_volto(file)
+    if validazione is not None and not validazione.volto_rilevato:
+        conn.close()
+        raise HTTPException(422, "Non è stato rilevato alcun volto in questa foto. Carica una foto in cui il tuo viso sia chiaramente visibile.")
     percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "profilo", file)
     cur.execute("UPDATE physical_profile SET foto_profilo_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
     esito_moderazione = _modera_foto(cur, user_id, "Foto profilo", percorso)
     conn.commit()
     conn.close()
-    return {"foto_profilo_url": percorso, "embedding_calcolato": False, "esito_moderazione": esito_moderazione}
+    return {
+        "foto_profilo_url": percorso,
+        "volti_multipli_rilevati": validazione.volti_multipli if validazione is not None else False,
+        "esito_moderazione": esito_moderazione,
+    }
 
 
 @router.post("/ideal-partner-photo")
 def carica_foto_partner_ideale(user_id: UUID, file: UploadFile = File(...)):
-    """RF-08b: foto opzionale di riferimento estetico + moderazione
-    automatica (RF-06b). Come per il profilo, l'embedding non è calcolato
-    qui (stub)."""
+    """RF-08b: foto opzionale di riferimento estetico + validazione volto
+    (RF-08c) + moderazione automatica (RF-06b). Stesso trattamento della
+    foto profilo, nessun embedding calcolato qui."""
     conn = get_conn()
     cur = conn.cursor()
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
+    validazione = _valida_volto(file)
+    if validazione is not None and not validazione.volto_rilevato:
+        conn.close()
+        raise HTTPException(422, "Non è stato rilevato alcun volto in questa foto. Carica una foto in cui il volto sia chiaramente visibile.")
     percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "partner_ideale", file)
     cur.execute("UPDATE physical_profile SET foto_partner_ideale_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
     esito_moderazione = _modera_foto(cur, user_id, "Foto partner ideale", percorso)
     conn.commit()
     conn.close()
-    return {"foto_partner_ideale_url": percorso, "embedding_calcolato": False, "esito_moderazione": esito_moderazione}
+    return {
+        "foto_partner_ideale_url": percorso,
+        "volti_multipli_rilevati": validazione.volti_multipli if validazione is not None else False,
+        "esito_moderazione": esito_moderazione,
+    }

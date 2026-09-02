@@ -100,13 +100,14 @@ CREATE TABLE IF NOT EXISTS physical_profile (
     alcol                           BOOLEAN,
     stile_vita_sport                VARCHAR(40),
     foto_profilo_url                VARCHAR(255),
-    foto_partner_ideale_url         VARCHAR(255),
-    -- embedding visivo ArcFace (512-dim). RF-11a/RF-11b: sceglie SEMPRE il
-    -- vincitore tra la shortlist di dimensione_shortlist_analisi_visiva
-    -- candidati già filtrati/ordinati per compatibilità caratteriale — mai
-    -- usato per formare la shortlist stessa, né per bypassare i filtri hard.
-    embedding_visivo_profilo         DOUBLE PRECISION[],
-    embedding_visivo_partner_ideale  DOUBLE PRECISION[]
+    foto_partner_ideale_url         VARCHAR(255)
+    -- embedding_visivo_profilo/embedding_visivo_partner_ideale (ArcFace
+    -- 512-dim) RIMOSSI 2026-09-03 — migrazione ad AWS Rekognition
+    -- CompareFaces on-demand (RF-11b, v. CLAUDE.md,
+    -- scripts/migrate_2026_09_03_rimuovi_embedding_visivo.py): il confronto
+    -- di somiglianza visiva non ha più nulla di precalcolato/persistito,
+    -- chiama l'API direttamente su foto_profilo_url/foto_partner_ideale_url
+    -- al momento della generazione della proposta.
 );
 
 -- ------------------------------------------------------------

@@ -31,6 +31,18 @@ class PhotoStorage(ABC):
         (storage locale, servito da /photos/) o un URL assoluto (R2)."""
         raise NotImplementedError
 
+    @abstractmethod
+    def leggi(self, riferimento: str) -> bytes:
+        """Legge i byte di una foto già salvata, dato lo stesso valore
+        ritornato da salva() (e quindi già presente in
+        foto_profilo_url/foto_partner_ideale_url). Usata da
+        services/face_recognition.py per il confronto RF-11b — stessa
+        astrazione sia per gli utenti reali sia per i 1000 profili demo
+        (anche le loro foto vivono nello stesso storage, stesso formato
+        di riferimento), nessun percorso di lettura separato per i due
+        casi. Solleva se il file non esiste/non è leggibile."""
+        raise NotImplementedError
+
 
 class LocalPhotoStorage(PhotoStorage):
     def __init__(self, storage_dir: str):
@@ -46,6 +58,10 @@ class LocalPhotoStorage(PhotoStorage):
         with open(percorso_assoluto, "wb") as f:
             shutil.copyfileobj(file.file, f)
         return f"{sottocartella}/{nome_file}"
+
+    def leggi(self, riferimento: str) -> bytes:
+        with open(os.path.join(self._storage_dir, riferimento), "rb") as f:
+            return f.read()
 
 
 class R2PhotoStorage(PhotoStorage):
@@ -69,6 +85,12 @@ class R2PhotoStorage(PhotoStorage):
             ExtraArgs={"ContentType": file.content_type or "image/jpeg"},
         )
         return f"{self._public_base}/{chiave}"
+
+    def leggi(self, riferimento: str) -> bytes:
+        prefisso = f"{self._public_base}/"
+        chiave = riferimento[len(prefisso):] if riferimento.startswith(prefisso) else riferimento
+        oggetto = self._client.get_object(Bucket=self._bucket, Key=chiave)
+        return oggetto["Body"].read()
 
 
 _storage: PhotoStorage | None = None

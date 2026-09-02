@@ -41,6 +41,31 @@ rimossa, non solo rinominata (self_embedding_vector/ideal_embedding_vector
 restano calcolati per altri usi, ma load_pool() non li carica più per il
 matching). flag_asimmetria_narrativa ora persistito su matches, stesso
 trattamento di flag_rifiuto_esplicito (v. routers/matching.py, routers/admin.py).
+
+Aggiornamento 2026-09-03 (stable_v9, v. CLAUDE.md — migrazione AWS
+Rekognition, richiesta esplicita dell'utente): la selezione per
+somiglianza visiva (RF-11a/RF-11b) non confronta più embedding
+precalcolati (ArcFace) — chiama AWS Rekognition CompareFaces on-demand
+tra la foto "partner ideale" del cercatore e la foto profilo di ciascun
+candidato in shortlist, senza nulla di precalcolato/persistito a lungo
+termine (v. services/face_recognition.py). Rompe deliberatamente la
+purezza computazionale del resto di questo modulo (nessun'altra funzione
+qui fa chiamate di rete) — isolato in seleziona_per_somiglianza_visiva()/
+somiglianza_visiva(), unico punto del file con questo effetto collaterale.
+Due scostamenti espliciti dal design precedente, segnalati all'utente
+(non decisi in silenzio): (a) confronto ORA UNIDIREZIONALE (solo
+ideale-del-cercatore vs profilo-del-candidato), non più la media
+bidirezionale introdotta in stable_v1 per compensare l'asimmetria di
+ArcFace (un modello di identity-verification riadattato) — CompareFaces è
+pensato nativamente per la somiglianza tra due foto, la stessa
+contromisura non è più necessaria; (b) NESSUNA soglia minima di
+similarità — la calibrazione a percentile di stable_v5 (nata per un
+problema specifico di ArcFace: il 90° percentile tra coppie casuali era
+già statisticamente alto quanto la vecchia soglia fissa) non si applica a
+un punteggio di confidenza "stessa persona" come CompareFaces, dove anche
+un valore basso resta comunque il migliore disponibile in shortlist.
+embedding_visivo_profilo/embedding_visivo_partner_ideale non sono più
+letti da load_pool() (restano a schema, deprecati — v. CLAUDE.md).
 """
 
 import json
@@ -49,13 +74,13 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from services import tag_matching
+from services import face_recognition, tag_matching
 
 # v. tabella matching_algorithm_versions in db/schema.sql per la descrizione
 # estesa — da aggiornare (nuova riga in quella tabella + bump qui) ogni
 # volta che cambia la LOGICA dell'algoritmo, non i soli parametri (quelli
 # sono già tracciati automaticamente via system_config, v. run_monthly_batch).
-ALGORITMO_VERSIONE = "stable_v8"
+ALGORITMO_VERSIONE = "stable_v9"
 
 # Sopra questa penalità sui rifiuti espliciti, il flag va esposto invece
 # di restare nascosto dentro la media (Ainima_Liste_Piace_Detesta_v1.md §5).
@@ -440,8 +465,7 @@ def load_pool(cur):
                d.pref_genere_cercato, d.pref_eta_min, d.pref_eta_max, d.pref_accetta_figli,
                sc.pref_altezza_min, sc.pref_altezza_max, sc.pref_fumo, sc.pref_alcol,
                sc.pref_importanza_religione,
-               p.altezza_cm, p.fumo, p.alcol, p.foto_profilo_url,
-               p.embedding_visivo_profilo, p.embedding_visivo_partner_ideale,
+               p.altezza_cm, p.fumo, p.alcol, p.foto_profilo_url, p.foto_partner_ideale_url,
                so.importanza_religione, so.importanza_vicinanza_geografica, so.lingue_parlate,
                ps.score_big5_estroversione, ps.score_big5_gradevolezza,
                ps.score_big5_coscienziosita, ps.score_big5_nevroticismo, ps.score_big5_apertura,
@@ -536,7 +560,7 @@ def load_pool(cur):
             "pref_importanza_religione": r["pref_importanza_religione"],
             "altezza_cm": r["altezza_cm"], "fumo": r["fumo"], "alcol": r["alcol"],
             "foto_profilo_url": r["foto_profilo_url"],
-            "emb_profilo": r["embedding_visivo_profilo"], "emb_pi": r["embedding_visivo_partner_ideale"],
+            "foto_partner_ideale_url": r["foto_partner_ideale_url"],
             "importanza_religione": r["importanza_religione"],
             "importanza_vicinanza_geografica": r["importanza_vicinanza_geografica"],
             "lingue_parlate": r["lingue_parlate"],
@@ -610,51 +634,49 @@ def load_config_floats(cur):
     return risultato
 
 
-def media_visiva_bidirezionale(seeker, cand):
-    sims = []
-    if seeker["emb_pi"] is not None and cand["emb_profilo"] is not None:
-        sims.append(cosine(seeker["emb_pi"], cand["emb_profilo"]))
-    if cand["emb_pi"] is not None and seeker["emb_profilo"] is not None:
-        sims.append(cosine(cand["emb_pi"], seeker["emb_profilo"]))
-    if not sims:
+def somiglianza_visiva(seeker, cand):
+    """RF-11b via AWS Rekognition CompareFaces — un solo confronto
+    direzionale (v. nota stable_v9 in cima al file per il perché non è più
+    bidirezionale come con gli embedding ArcFace). None se non calcolabile
+    (foto mancante da un lato, nessun volto rilevabile, errore di rete/
+    servizio) — mai un'eccezione, il chiamante tratta un candidato senza
+    punteggio visivo come "escluso da questo confronto", non come un
+    errore da propagare (v. services/face_recognition.py)."""
+    if seeker["foto_partner_ideale_url"] is None or cand["foto_profilo_url"] is None:
         return None
-    return sum(sims) / len(sims)
+    return face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
 
 
-def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n, cfg):
+def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n):
     """RF-11a/RF-11b: shortlist dei primi n candidati per punteggio
     caratteriale, poi — SOLO se il seeker ha caricato la foto "partner
     ideale" — vince SEMPRE il candidato visivamente più simile tra questi
-    (media bidirezionale sugli embedding volto), non solo in caso di
-    quasi pareggio (v. decisione utente 2026-08-19, sostituisce il
-    tie-break-tra-quasi-pari di stable_v1/v2 — v. CLAUDE.md). RNF-08:
-    agisce solo dentro la shortlist già filtrata su compatibilità, mai
-    per bypassare i filtri hard o la soglia minima.
+    (CompareFaces, v. somiglianza_visiva sopra), non solo in caso di quasi
+    pareggio (v. decisione utente 2026-08-19). RNF-08: agisce solo dentro
+    la shortlist già filtrata su compatibilità, mai per bypassare i filtri
+    hard o la soglia minima.
 
-    2026-08-20 (stable_v5, v. CLAUDE.md): la soglia minima non è più un
-    valore assoluto fisso (0.20) inventato a occhio — verificato che il
-    90° percentile delle similarità ArcFace tra coppie CASUALI del pool
-    era già 0.334, ben sopra quella soglia: un valore assoluto basso
-    lasciava che il tie-break scattasse su rumore statistico, non su una
-    somiglianza reale. `soglia_similarita_visiva_minima` in system_config
-    è ora un valore ricalcolato periodicamente (script dedicato, nessuno
-    scheduler reale — stesso limite già accettato per il centroide tag)
-    sul percentile target `soglia_percentile_similarita_visiva` (default
-    0.90) della distribuzione reale del pool corrente. Se non ancora
-    calcolato, fallback al vecchio valore 0.20 (degrado, non un errore).
+    2026-09-03 (stable_v9): NESSUNA soglia minima — a differenza della
+    calibrazione a percentile introdotta in stable_v5 per ArcFace (dove un
+    punteggio basso poteva essere puro rumore statistico), CompareFaces è
+    un punteggio di confidenza "stessa persona" nativo: anche un valore
+    basso resta il candidato visivamente più vicino disponibile in
+    shortlist, non equiparabile a rumore — scostamento esplicito dal
+    design precedente, segnalato all'utente. Se il confronto non è
+    calcolabile per NESSUNO dei candidati in shortlist (foto assenti/
+    errore sistemico), fallback al primo per compatibilità caratteriale —
+    stesso comportamento già in uso per "nessuna foto caricata".
 
     Ritorna (id_vincitore, selezionato_per_somiglianza_visiva: bool)."""
-    if seeker["emb_pi"] is None:
+    if seeker["foto_partner_ideale_url"] is None:
         return id_ordinati[0], False  # RF-11b: fallback esplicito, nessuna foto caricata
 
-    soglia = cfg.get("soglia_similarita_visiva_minima", 0.20)
     shortlist = id_ordinati[:n]
-    medie = {cid: media_visiva_bidirezionale(seeker, pool[cid]) for cid in shortlist}
-    migliore_media = max((m for m in medie.values() if m is not None), default=None)
-    if migliore_media is None or migliore_media < soglia:
-        return id_ordinati[0], False
+    punteggi = {cid: somiglianza_visiva(seeker, pool[cid]) for cid in shortlist}
+    if all(p is None for p in punteggi.values()):
+        return id_ordinati[0], False  # RF-11b: fallback, confronto non calcolabile per l'intera shortlist
 
-    vincitore_id = max(shortlist, key=lambda cid: medie[cid] if medie[cid] is not None else -1)
+    vincitore_id = max(shortlist, key=lambda cid: punteggi[cid] if punteggi[cid] is not None else -1)
     return vincitore_id, vincitore_id != id_ordinati[0]
 
 
@@ -699,7 +721,7 @@ def find_best_match(seeker_id, pool, cfg):
     per_id = {c["id"]: c for c in candidati}
     n = int(cfg.get("dimensione_shortlist_analisi_visiva", 5))
     vincitore_id, selezionato_per_somiglianza_visiva = seleziona_per_somiglianza_visiva(
-        seeker, [c["id"] for c in candidati], pool, n, cfg)
+        seeker, [c["id"] for c in candidati], pool, n)
     vincitore = per_id[vincitore_id]
 
     return {
@@ -772,7 +794,7 @@ def build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati):
     id_ordinati = [cid for cid, _ in candidati]
 
     n = int(cfg.get("dimensione_shortlist_analisi_visiva", 5))
-    vincitore_id, selezionato_visivo = seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n, cfg)
+    vincitore_id, selezionato_visivo = seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n)
     if vincitore_id != id_ordinati[0]:
         id_ordinati = [vincitore_id] + [cid for cid in id_ordinati if cid != vincitore_id]
 

@@ -13,6 +13,7 @@ function PhotoSlotView({
   loading,
   error,
   inRevisione,
+  volteMultipli,
   onFile,
 }: {
   label: string;
@@ -21,6 +22,7 @@ function PhotoSlotView({
   loading: boolean;
   error: string | null;
   inRevisione: boolean;
+  volteMultipli: boolean;
   onFile: (file: File) => void;
 }) {
   const t = useTranslations("dashboard.photos");
@@ -58,6 +60,7 @@ function PhotoSlotView({
         </Button>
 
         {inRevisione && <Alert tone="info">{t("pendingModeration")}</Alert>}
+        {volteMultipli && <Alert tone="info">{t("multipleFacesWarning")}</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
       </div>
     </div>
@@ -70,6 +73,10 @@ export function PhotoSection({ userId }: { userId: string }) {
   const [fotoIdeale, setFotoIdeale] = useState<string | null>(null);
   const [revisioneProfilo, setRevisioneProfilo] = useState(false);
   const [revisioneIdeale, setRevisioneIdeale] = useState(false);
+  // RF-08c: avviso "più volti rilevati" (AWS Rekognition DetectFaces) —
+  // non blocca l'upload, solo un segnale informativo.
+  const [multiFaceProfilo, setMultiFaceProfilo] = useState(false);
+  const [multiFaceIdeale, setMultiFaceIdeale] = useState(false);
   const loadAction = useAsyncAction(profileApi.getProfile);
   const profiloAction = useAsyncAction(profileApi.uploadProfilePhoto);
   const idealeAction = useAsyncAction(profileApi.uploadIdealPartnerPhoto);
@@ -94,8 +101,10 @@ export function PhotoSection({ userId }: { userId: string }) {
   // "solo frontend" di questa modifica).
   async function handleProfiloFile(file: File) {
     setRevisioneProfilo(false);
+    setMultiFaceProfilo(false);
     const result = await profiloAction.run(userId, file);
     if (!result) return;
+    setMultiFaceProfilo(result.volti_multipli_rilevati);
     if (result.esito_moderazione === "Sospetta") {
       setRevisioneProfilo(true);
       return;
@@ -105,8 +114,10 @@ export function PhotoSection({ userId }: { userId: string }) {
 
   async function handleIdealeFile(file: File) {
     setRevisioneIdeale(false);
+    setMultiFaceIdeale(false);
     const result = await idealeAction.run(userId, file);
     if (!result) return;
+    setMultiFaceIdeale(result.volti_multipli_rilevati);
     if (result.esito_moderazione === "Sospetta") {
       setRevisioneIdeale(true);
       return;
@@ -119,6 +130,10 @@ export function PhotoSection({ userId }: { userId: string }) {
       <h2 className="font-display text-xl text-navy">{t("title")}</h2>
       <p className="mt-1 text-sm text-slate">{t("subtitle")}</p>
 
+      {/* RF-08d: indicazioni di qualità mostrate PRIMA del tentativo di
+          upload, non solo come messaggio d'errore dopo un rifiuto. */}
+      <Alert tone="info" className="mt-4">{t("faceGuidance")}</Alert>
+
       <div className="mt-5 grid grid-cols-2 gap-6">
         <PhotoSlotView
           label={t("profileLabel")}
@@ -127,6 +142,7 @@ export function PhotoSection({ userId }: { userId: string }) {
           loading={profiloAction.loading}
           error={profiloAction.error}
           inRevisione={revisioneProfilo}
+          volteMultipli={multiFaceProfilo}
           onFile={handleProfiloFile}
         />
         <PhotoSlotView
@@ -136,6 +152,7 @@ export function PhotoSection({ userId }: { userId: string }) {
           loading={idealeAction.loading}
           error={idealeAction.error}
           inRevisione={revisioneIdeale}
+          volteMultipli={multiFaceIdeale}
           onFile={handleIdealeFile}
         />
       </div>

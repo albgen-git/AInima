@@ -210,13 +210,15 @@ export type EsitoModerazione = "OK" | "Sospetta" | "In errore";
 
 export interface ProfilePhotoResponse {
   foto_profilo_url: string;
-  embedding_calcolato: false;
+  /** RF-08c: più di un volto rilevato (AWS Rekognition DetectFaces) — non
+   * blocca l'upload, ma segnala che la foto potrebbe ritrarre più persone. */
+  volti_multipli_rilevati: boolean;
   esito_moderazione: EsitoModerazione;
 }
 
 export interface IdealPartnerPhotoResponse {
   foto_partner_ideale_url: string;
-  embedding_calcolato: false;
+  volti_multipli_rilevati: boolean;
   esito_moderazione: EsitoModerazione;
 }
 

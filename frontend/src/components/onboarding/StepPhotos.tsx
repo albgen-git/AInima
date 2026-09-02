@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useRef } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card } from "@/components/ui";
 import { profileApi } from "@/lib/api";
@@ -19,6 +19,8 @@ function PhotoUploadBlock({
   uploadingLabel,
   uploadedLabel,
   changeLabel,
+  multipleFacesWarning,
+  showMultipleFacesWarning,
 }: {
   label: string;
   hint: string;
@@ -31,6 +33,8 @@ function PhotoUploadBlock({
   uploadingLabel: string;
   uploadedLabel: string;
   changeLabel: string;
+  multipleFacesWarning: string;
+  showMultipleFacesWarning: boolean;
 }) {
   // Ref + click() programmatico invece del trucco <label> + pointer-events-none:
   // quel pattern si affida all'attivazione nativa "click sulla label inoltra
@@ -86,6 +90,7 @@ function PhotoUploadBlock({
         </Button>
       )}
       {error && <Alert tone="error">{error}</Alert>}
+      {showMultipleFacesWarning && <Alert tone="info">{multipleFacesWarning}</Alert>}
     </div>
   );
 }
@@ -96,17 +101,28 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
 
   const profileUpload = useAsyncAction(profileApi.uploadProfilePhoto);
   const idealUpload = useAsyncAction(profileApi.uploadIdealPartnerPhoto);
+  // RF-08c: avviso "più volti rilevati" — non blocca l'upload (v.
+  // backend/routers/profile.py), solo un segnale informativo dopo il
+  // salvataggio.
+  const [profileMultiFace, setProfileMultiFace] = useState(false);
+  const [idealMultiFace, setIdealMultiFace] = useState(false);
 
   async function handleUploadProfile(file: File) {
     if (!state.userId) return;
     const result = await profileUpload.run(state.userId, file);
-    if (result) update("foto_profilo_url", result.foto_profilo_url);
+    if (result) {
+      update("foto_profilo_url", result.foto_profilo_url);
+      setProfileMultiFace(result.volti_multipli_rilevati);
+    }
   }
 
   async function handleUploadIdeal(file: File) {
     if (!state.userId) return;
     const result = await idealUpload.run(state.userId, file);
-    if (result) update("foto_partner_ideale_url", result.foto_partner_ideale_url);
+    if (result) {
+      update("foto_partner_ideale_url", result.foto_partner_ideale_url);
+      setIdealMultiFace(result.volti_multipli_rilevati);
+    }
   }
 
   const canContinue = !!state.foto_profilo_url;
@@ -117,6 +133,10 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
       <p className="mt-2 text-sm text-slate">{t("subtitle")}</p>
 
       <div className="mt-6 flex flex-col gap-8">
+        {/* RF-08d: indicazioni di qualità mostrate PRIMA del tentativo di
+            upload, non solo come messaggio d'errore dopo un rifiuto. */}
+        <Alert tone="info">{t("faceGuidance")}</Alert>
+
         <PhotoUploadBlock
           label={t("profileLabel")}
           hint={t("profileHint")}
@@ -129,6 +149,8 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
           uploadingLabel={t("uploading")}
           uploadedLabel={t("uploaded")}
           changeLabel={t("changePhoto")}
+          multipleFacesWarning={t("multipleFacesWarning")}
+          showMultipleFacesWarning={profileMultiFace}
         />
 
         <PhotoUploadBlock
@@ -142,6 +164,8 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
           uploadingLabel={t("uploading")}
           uploadedLabel={t("uploaded")}
           changeLabel={t("changePhoto")}
+          multipleFacesWarning={t("multipleFacesWarning")}
+          showMultipleFacesWarning={idealMultiFace}
         />
 
         <Alert tone="info">{t("moderationNote")}</Alert>
