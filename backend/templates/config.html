@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Ainima — Configurazione</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 0; padding: 24px; }
+  nav { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; }
+  nav a { color: #8fa8ff; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  nav a.active { color: #fff; font-weight: 600; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #999; font-size: 13px; margin: 0 0 20px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 10px; border-bottom: 1px solid #333; vertical-align: top; }
+  th { color: #999; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.chiave { font-family: monospace; font-size: 13px; }
+  td.descrizione { color: #aaa; font-size: 12px; max-width: 340px; }
+  td.modifica { color: #777; font-size: 11px; }
+  input[type=text], select { background: #1a1a1e; border: 1px solid #444; color: #eee; padding: 6px 8px; border-radius: 5px; font-size: 13px; width: 110px; }
+  button { background: #4a5cf0; border: none; color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 6px; }
+  form.row-form { display: flex; align-items: center; gap: 4px; }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="/">Utenti demo</a>
+    <a href="/moderation">Coda moderazione</a>
+    <a href="/recovery">Recupero accesso</a>
+    <a href="/config" class="active">Configurazione</a>
+  </nav>
+  <h1>Console di configurazione</h1>
+  <p class="sub">RF-25e — parametri di system_config, modificabili senza toccare il codice. Ogni modifica viene tracciata (operatore, data, valore precedente → nuovo).</p>
+
+  <table>
+    <tr><th>Chiave</th><th>Descrizione</th><th>Valore attuale</th><th>Ultima modifica</th></tr>
+    {% for r in righe %}
+    <tr>
+      <td class="chiave">{{ r.chiave }}</td>
+      <td class="descrizione">{{ r.descrizione or "" }}</td>
+      <td>
+        <form class="row-form" method="post" action="/config/{{ r.chiave }}/update"
+              onsubmit="return confermaSeNecessario(this, '{{ r.chiave }}', '{{ r.valore }}')">
+          {% if r.chiave in chiavi_bool %}
+          <select name="valore">
+            <option value="true" {% if r.valore == "true" %}selected{% endif %}>Sì</option>
+            <option value="false" {% if r.valore == "false" %}selected{% endif %}>No</option>
+          </select>
+          {% else %}
+          <input type="text" name="valore" value="{{ r.valore }}">
+          {% endif %}
+          <input type="hidden" name="conferma_disattivazione" value="">
+          <button type="submit">Salva</button>
+        </form>
+      </td>
+      <td class="modifica">{{ r.data_ultima_modifica }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <script>
+    // RF-25e: disattivare verifica_carta_attiva rimuove un filtro
+    // anti-abuso — richiede conferma esplicita, non un semplice submit.
+    // Il dialog nativo è solo il primo passo (UX, bypassabile disattivando
+    // JS): il campo nascosto conferma_disattivazione="si" viene impostato
+    // SOLO se l'utente conferma, e il backend lo ri-verifica comunque lato
+    // server prima di applicare il cambio (v. routers/admin_viewer.py) —
+    // il controllo che conta è quello server-side, questo è solo l'avviso.
+    function confermaSeNecessario(form, chiave, valoreAttuale) {
+      if (chiave !== "verifica_carta_attiva") return true;
+      var nuovoValore = form.querySelector("select[name=valore]").value;
+      if (valoreAttuale === "true" && nuovoValore === "false") {
+        var ok = confirm(
+          "Sei sicuro? Questo rimuove un filtro anti-abuso durante la registrazione."
+        );
+        if (!ok) return false;
+        form.querySelector("input[name=conferma_disattivazione]").value = "si";
+      }
+      return true;
+    }
+  </script>
+</body>
+</html>

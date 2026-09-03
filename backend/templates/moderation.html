@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Ainima — Coda di moderazione</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 0; padding: 24px; }
+  nav { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; }
+  nav a { color: #8fa8ff; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  nav a.active { color: #fff; font-weight: 600; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #999; font-size: 13px; margin: 0 0 20px; }
+  .card { background: #24242a; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 14px; display: flex; gap: 18px; align-items: center; }
+  .card img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid #444; }
+  .card .info { flex: 1; font-size: 13px; }
+  .card .info .nome { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card .info .meta { color: #999; }
+  .card .actions { display: flex; gap: 8px; }
+  button { border: none; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button.approva { background: #1d5c33; }
+  button.rifiuta { background: #7a2c2c; }
+  .empty { color: #666; font-style: italic; padding: 20px 0; }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="/">Utenti demo</a>
+    <a href="/moderation" class="active">Coda moderazione</a>
+    <a href="/recovery">Recupero accesso</a>
+    <a href="/config">Configurazione</a>
+  </nav>
+  <h1>Coda di moderazione contenuti</h1>
+  <p class="sub">RF-25c — immagini segnalate dal sistema automatico (RF-06b), in attesa di revisione umana.</p>
+
+  {% if not righe %}
+  <div class="empty">Nessuna voce in attesa.</div>
+  {% endif %}
+
+  {% for r in righe %}
+  <div class="card">
+    <img src="{{ r.immagine_url | foto_src }}" onerror="this.style.visibility='hidden'">
+    <div class="info">
+      <div class="nome">{{ r.nome }} {{ r.cognome }} <span style="color:#999;font-weight:400;">— {{ r.email }}</span></div>
+      <div class="meta">{{ r.tipo_immagine }} · confidenza {{ r.score_confidenza }} · scansionata il {{ r.data_scansione }}</div>
+    </div>
+    <div class="actions">
+      <form method="post" action="/moderation/{{ r.moderation_id }}/decision">
+        <input type="hidden" name="approvato" value="si">
+        <button class="approva" type="submit">Approva</button>
+      </form>
+      <form method="post" action="/moderation/{{ r.moderation_id }}/decision">
+        <input type="hidden" name="approvato" value="no">
+        <button class="rifiuta" type="submit">Rifiuta</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</body>
+</html>

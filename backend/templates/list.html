@@ -18,9 +18,19 @@
   .pager { margin-top: 16px; display: flex; gap: 12px; }
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #333; }
   .badge.Attivo { background: #1d5c33; }
+  nav { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; }
+  nav a { color: #8fa8ff; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  nav a.active { color: #fff; font-weight: 600; }
 </style>
 </head>
 <body>
+  <nav>
+    <a href="/" class="active">Utenti demo</a>
+    <a href="/moderation">Coda moderazione</a>
+    <a href="/recovery">Recupero accesso</a>
+    <a href="/config">Configurazione</a>
+  </nav>
   <h1>Ainima — Admin Viewer ({{ totale }} utenti)</h1>
   <form class="search" method="get" action="/">
     <input type="text" name="q" placeholder="Cerca per nome, cognome o ID..." value="{{ q }}">

@@ -630,5 +630,35 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     ('otp_rate_limit_ip_per_ora',       '10',  'Numero massimo di richieste OTP consentite dallo stesso IP in un''ora, anti-abuso'),
     ('jwt_scadenza_giorni',             '30',  'Giorni di validità del token di sessione emesso alla verifica OTP (v. CLAUDE.md: emesso ma non ancora applicato su altre rotte)'),
     ('cadenza_email_engagement_giorni', '7',   'Blocco E — tetto minimo di giorni tra due email di engagement (domande di affinamento/pillole) per lo stesso utente, anti-invadenza (Ainima_Dashboard_Trigger_Email_v1.md §2.3)'),
-    ('giorno_invio_email_engagement',   'Martedì', 'Blocco E — giorno fisso della settimana in cui si svuota la coda email di engagement, per prevedibilità lato utente (Ainima_Dashboard_Trigger_Email_v1.md §2.2)')
+    ('giorno_invio_email_engagement',   'Martedì', 'Blocco E — giorno fisso della settimana in cui si svuota la coda email di engagement, per prevedibilità lato utente (Ainima_Dashboard_Trigger_Email_v1.md §2.2)'),
+    -- RF-25e (console di configurazione, v. CLAUDE.md). VALORI DI DEFAULT
+    -- PENSATI PER L'AMBIENTE DI COLLAUDO ATTUALE (l'unico che esiste oggi
+    -- — v. CLAUDE.md §8, nessuna produzione ancora). Questo INSERT gira
+    -- dentro il DB dell'ambiente in cui viene applicato schema.sql — un
+    -- futuro DB di produzione, separato e distinto, riceverà questa
+    -- stessa migrazione ma dovrà poi avere i propri valori reali scelti
+    -- per quel contesto (es. cadenza_giorni_proposta_abbinamento=30 è un
+    -- default ragionevole ovunque, ma verifica_carta_attiva='true' in
+    -- produzione non dovrebbe MAI essere disattivato senza motivo — qui
+    -- resta 'true' di default anche in collaudo apposta, il flag esiste
+    -- solo per test mirati) — nessun valore va mai copiato ciecamente da
+    -- collaudo a produzione tramite questa riga.
+    ('cadenza_giorni_proposta_abbinamento', '30', 'RF-25e/RF-11: ogni quanti giorni gira il ciclo di generazione delle proposte di abbinamento'),
+    ('cadenza_invio_pillole',           '7',   'RF-25e/RF-31c: ogni quanti giorni viene proposta una nuova pillola di contenuto, per non mostrare sempre la stessa'),
+    ('cadenza_domande_supplementari',   '14',  'RF-25e: ogni quanti giorni vengono proposte nuove domande di affinamento supplementari'),
+    ('verifica_carta_attiva',           'true', 'RF-25e/RF-04: se disattivato, l''onboarding prosegue senza richiedere la pre-autorizzazione carta — rimuove un filtro anti-abuso, richiede conferma esplicita per disattivare')
 ON CONFLICT (chiave) DO NOTHING;
+
+-- Audit generico per le azioni prese dal viewer admin autenticato (v.
+-- CLAUDE.md — RF-25c/25d/25e): "chi" è lo username HTTP Basic Auth, non
+-- una FK a una tabella staff che non esiste ancora (a differenza di
+-- content_moderation_log.revisionato_da/email_change_requests.
+-- revisionato_da/system_config.modificato_da, tutti UUID pensati per
+-- quella tabella futura e rimasti sempre NULL in pratica).
+CREATE TABLE IF NOT EXISTS admin_action_log (
+    log_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    operatore     TEXT NOT NULL,
+    azione         TEXT NOT NULL,
+    dettaglio       TEXT,
+    data_azione      TIMESTAMPTZ NOT NULL DEFAULT now()
+);

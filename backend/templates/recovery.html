@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Ainima — Recupero accesso</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 0; padding: 24px; }
+  nav { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; }
+  nav a { color: #8fa8ff; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  nav a.active { color: #fff; font-weight: 600; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #999; font-size: 13px; margin: 0 0 20px; }
+  .card { background: #24242a; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 14px; }
+  .compare h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #9aa; margin: 0 0 8px; }
+  .compare .row { font-size: 13px; margin-bottom: 4px; }
+  .compare .row span.label { color: #999; display: inline-block; width: 90px; }
+  .meta { color: #999; font-size: 12px; margin-bottom: 12px; }
+  .actions { display: flex; gap: 8px; align-items: center; }
+  form.decision { display: flex; gap: 8px; align-items: center; }
+  input[type=text] { background: #1a1a1e; border: 1px solid #444; color: #eee; padding: 6px 8px; border-radius: 5px; font-size: 13px; width: 300px; }
+  button { border: none; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button.approva { background: #1d5c33; }
+  button.rifiuta { background: #7a2c2c; }
+  .empty { color: #666; font-style: italic; padding: 20px 0; }
+  .no-match { color: #d99; font-size: 12px; }
+</style>
+</head>
+<body>
+  <nav>
+    <a href="/">Utenti demo</a>
+    <a href="/moderation">Coda moderazione</a>
+    <a href="/recovery" class="active">Recupero accesso</a>
+    <a href="/config">Configurazione</a>
+  </nav>
+  <h1>Coda di recupero accesso</h1>
+  <p class="sub">RF-25d/RF-26b/26c — richieste in attesa, dati dichiarati dall'utente affiancati al profilo esistente per il confronto.</p>
+
+  {% if not righe %}
+  <div class="empty">Nessuna richiesta in attesa.</div>
+  {% endif %}
+
+  {% for r in righe %}
+  <div class="card">
+    <div class="meta">{{ r.origine }} · richiesta il {{ r.data_richiesta }} · nuova email: {{ r.email_nuova_richiesta }}</div>
+    <div class="compare">
+      <div>
+        <h3>Dichiarato dall'utente</h3>
+        <div class="row"><span class="label">Email attuale</span>{{ r.email_attuale_dichiarata or "—" }}</div>
+        {% if r.dati_identificativi_forniti %}
+          {% for k, v in r.dati_identificativi_forniti.items() %}
+          <div class="row"><span class="label">{{ k }}</span>{{ v }}</div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <div>
+        <h3>Profilo esistente corrispondente</h3>
+        {% if r.profilo_user_id %}
+        <div class="row"><span class="label">Nome</span>{{ r.profilo_nome }} {{ r.profilo_cognome }}</div>
+        <div class="row"><span class="label">Email</span>{{ r.profilo_email }}</div>
+        <div class="row"><span class="label">Nascita</span>{{ r.profilo_data_nascita }}</div>
+        <div class="row"><span class="label">user_id</span><span style="font-family:monospace;font-size:11px;">{{ r.profilo_user_id }}</span></div>
+        {% else %}
+        <div class="no-match">Nessun profilo trovato con quella email — verifica manuale, indica lo user_id corretto sotto se lo identifichi altrove.</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="actions">
+      <form class="decision" method="post" action="/recovery/{{ r.request_id }}/decision">
+        <input type="hidden" name="approvato" value="si">
+        <input type="text" name="user_id" placeholder="user_id da confermare" value="{{ r.profilo_user_id or '' }}">
+        <button class="approva" type="submit">Approva</button>
+      </form>
+      <form method="post" action="/recovery/{{ r.request_id }}/decision">
+        <input type="hidden" name="approvato" value="no">
+        <button class="rifiuta" type="submit">Rifiuta</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</body>
+</html>

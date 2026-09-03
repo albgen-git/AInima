@@ -20,9 +20,18 @@
   .field button { background: #4a5cf0; border: none; color: #fff; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
   .readonly { font-size: 13px; color: #ccc; padding: 6px 0; }
   .no-data { color: #666; font-style: italic; font-size: 13px; }
+  nav { display: flex; gap: 16px; margin-bottom: 12px; font-size: 13px; }
+  nav a { color: #8fa8ff; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
+  <nav>
+    <a href="/">Utenti demo</a>
+    <a href="/moderation">Coda moderazione</a>
+    <a href="/recovery">Recupero accesso</a>
+    <a href="/config">Configurazione</a>
+  </nav>
   <a class="back" href="/">&larr; Torna alla lista</a>
   <h1>{{ u.nome }} {{ u.cognome }}
     {% if u.source_actor_id is not none %}

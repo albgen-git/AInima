@@ -47,3 +47,11 @@ services:
       # nel progetto (v. CLAUDE.md), 'none' è il default sicuro esistente.
       - key: CONTENT_MODERATION_PROVIDER
         value: none
+      # Login HTTP Basic Auth del pannello admin (routers/admin_viewer.py).
+      # SPECIFICHE DI QUESTO AMBIENTE (collaudo) — un futuro servizio
+      # Render separato per la produzione avrà una propria coppia
+      # ADMIN_USERNAME/ADMIN_PASSWORD indipendente, mai le stesse di qui.
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
