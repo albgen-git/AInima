@@ -71,10 +71,11 @@ qualunque altra coppia.
 Il report DEVE contenere (rispettando SEMPRE la regola del pubblico
 duale sotto — citare un dato concreto e anonimizzare la fonte non sono
 in conflitto, vanno fatte insieme):
-- Almeno 2 riferimenti a sotto-dimensioni SPECIFICHE del Test Profilo
-  Relazionale, nominando la categoria (es. "sulla centralità della
-  famiglia", "nel modo di gestire i momenti di tensione") — non un
-  generico "condividete valori simili".
+- Se il dettaglio per sotto-dimensione del Test Profilo Relazionale NON
+  è vuoto: almeno 2 riferimenti a sotto-dimensioni SPECIFICHE,
+  nominando la categoria (es. "sulla centralità della famiglia", "nel
+  modo di gestire i momenti di tensione") — non un generico
+  "condividete valori simili".
 - Almeno 1 riferimento a una dimensione o facet Big Five specifica,
   descritta come **livello condiviso o dinamica di coppia**, MAI
   attribuita a una persona identificabile — corretto: "mostrate un
@@ -86,10 +87,29 @@ in conflitto, vanno fatte insieme):
 - Se compatibilità_tag_liste è alta: almeno 1 interesse condiviso
   citato per nome dalle liste "mi piace" (es. "la passione comune per
   [tag]"), MAI inventato se non presente nei dati.
-- Almeno 1 area di attenzione REALE, ancorata a un dato specifico di
-  minore compatibilità — non una frase vaga come "potrebbe volerci del
-  dialogo". Nomina la sotto-dimensione o il facet coinvolto, sempre a
-  livello di dinamica di coppia.
+- Almeno 1 area di attenzione REALE, ancorata al dato con punteggio più
+  basso tra QUALUNQUE fonte davvero ricevuta (sotto-dimensione del
+  Profilo Relazionale se il dettaglio non è vuoto, altrimenti una
+  dimensione Big Five) — non una frase vaga come "potrebbe volerci del
+  dialogo". Nomina sempre cosa, a livello di dinamica di coppia.
+
+## Se una fonte è vuota, non forzare una citazione su quella fonte
+Il dettaglio per sotto-dimensione del Test Profilo Relazionale può
+arrivare come lista **vuota** — caso limite trovato dal vivo (v.
+CLAUDE.md, coppia Alberto/Patrizia sul pool di produzione): una delle
+due persone non ha ancora completato quel test. Non dovrebbe succedere
+per un match reale una volta a regime (il test è nel gate di
+attivazione obbligatorio, RF-09), ma il report non deve mai dipendere
+da quell'assunzione. In quel caso: nessuna sotto-dimensione va citata,
+nessuna va inventata, nessun riferimento generico che finga di essere
+specifico. Il peso di "Cosa vi avvicina" si sposta sulle altre fonti
+davvero ricevute (Big Five, sempre disponibile — scegline più delle 2-3
+di default; interessi condivisi, se presenti) — il numero di punti
+resta lo stesso, cambia solo la fonte. Stessa logica per l'area di
+attenzione: senza sotto-dimensioni del Profilo Relazionale, ancorala
+alla dimensione Big Five con punteggio più basso, mai lasciata vaga.
+Non è un'eccezione al principio "cita solo ciò che è vero" — è la sua
+applicazione più stringente quando i dati disponibili sono pochi.
 
 ## Cosa scegliere se ci sono troppi dati
 Non provare a citare tutto. Scegli le 2-3 sotto-dimensioni con
