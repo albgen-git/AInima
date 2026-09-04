@@ -573,7 +573,13 @@ CREATE TABLE IF NOT EXISTS email_inviata_log (
     data_invio            TIMESTAMPTZ NOT NULL DEFAULT now(),
     contenuti_inclusi       JSONB NOT NULL, -- snapshot di cosa è stato incluso in QUESTA email (stesso principio di algoritmo_parametri su matches)
     aperta                    BOOLEAN NOT NULL DEFAULT FALSE,
-    cliccata                   BOOLEAN NOT NULL DEFAULT FALSE
+    cliccata                   BOOLEAN NOT NULL DEFAULT FALSE,
+    -- id del messaggio lato provider (es. Resend) — trovato mancante dal
+    -- vivo il 2026-09-04: un utente reale segnalava mancata ricezione,
+    -- "inviata con successo" secondo il nostro log non era rintracciabile
+    -- nel dashboard del provider senza questo id. Nullable: un invio può
+    -- comunque riuscire anche se il provider non restituisce un id.
+    provider_message_id      VARCHAR(255)
 );
 
 -- ------------------------------------------------------------

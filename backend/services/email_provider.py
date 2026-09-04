@@ -9,18 +9,36 @@ import os
 from abc import ABC, abstractmethod
 
 
+def _estrai_id(risposta) -> str | None:
+    """L'SDK resend ritorna un dict {"id": "..."} nella maggior parte delle
+    versioni — difensivo contro varianti (oggetto con attributo .id, o
+    risposta assente) invece di assumere una sola forma."""
+    if isinstance(risposta, dict):
+        return risposta.get("id")
+    return getattr(risposta, "id", None)
+
+
 class EmailProvider(ABC):
     @abstractmethod
-    def invia_otp(self, email: str, codice: str) -> None:
+    def invia_otp(self, email: str, codice: str) -> str | None:
         """Deve sollevare un'eccezione se l'invio fallisce — il chiamante
-        (routers/auth.py) decide come reagire, non questo layer."""
+        (routers/auth.py) decide come reagire, non questo layer. Ritorna
+        l'id del messaggio lato provider, se disponibile (None altrimenti)
+        — per tracciabilità, v. invia_notifica sotto."""
         raise NotImplementedError
 
     @abstractmethod
-    def invia_notifica(self, email: str, oggetto: str, corpo_html: str) -> None:
+    def invia_notifica(self, email: str, oggetto: str, corpo_html: str) -> str | None:
         """Email di sicurezza/informativa generica (non un OTP) — usata per
-        RF-26 (notifica cambio email alla vecchia casella) e RF-26d (link
-        di annullamento/completamento del recupero accesso)."""
+        RF-26 (notifica cambio email alla vecchia casella), RF-26d (link
+        di annullamento/completamento del recupero accesso) e Blocco E
+        (pillole/domande di affinamento). Ritorna l'id del messaggio lato
+        provider (es. Resend message id), se disponibile — senza, un invio
+        "riuscito" secondo il nostro sistema (nessuna eccezione sollevata)
+        non è più rintracciabile nel dashboard del provider in caso di
+        mancata consegna (trovato dal vivo il 2026-09-04: un utente reale
+        segnalava di non aver ricevuto l'email, e non c'era alcun id salvato
+        per verificarne lo stato)."""
         raise NotImplementedError
 
 
@@ -38,8 +56,8 @@ class ResendEmailProvider(EmailProvider):
         self._resend = resend
         self._from = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 
-    def invia_otp(self, email: str, codice: str) -> None:
-        self._resend.Emails.send(
+    def invia_otp(self, email: str, codice: str) -> str | None:
+        risposta = self._resend.Emails.send(
             {
                 "from": self._from,
                 "to": [email],
@@ -51,9 +69,11 @@ class ResendEmailProvider(EmailProvider):
                 ),
             }
         )
+        return _estrai_id(risposta)
 
-    def invia_notifica(self, email: str, oggetto: str, corpo_html: str) -> None:
-        self._resend.Emails.send({"from": self._from, "to": [email], "subject": oggetto, "html": corpo_html})
+    def invia_notifica(self, email: str, oggetto: str, corpo_html: str) -> str | None:
+        risposta = self._resend.Emails.send({"from": self._from, "to": [email], "subject": oggetto, "html": corpo_html})
+        return _estrai_id(risposta)
 
 
 _provider: EmailProvider | None = None

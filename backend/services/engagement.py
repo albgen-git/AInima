@@ -268,11 +268,12 @@ def invia_email_engagement_batch(conn, dry_run=True):
             # nuovo — email duplicate a utenti reali. Ogni utente è quindi un
             # tentativo isolato: un fallimento non tocca gli altri.
             try:
-                email_provider.get_email_provider().invia_notifica(blocco["email"], oggetto, corpo_html)
+                message_id = email_provider.get_email_provider().invia_notifica(blocco["email"], oggetto, corpo_html)
                 contenuti = [{"tipo": v["tipo_contenuto"], "id": str(v["contenuto_id"])} for v in voci]
                 cur.execute("""
-                    INSERT INTO email_inviata_log (user_id, contenuti_inclusi) VALUES (%s, %s::jsonb)
-                """, (user_id, json.dumps(contenuti)))
+                    INSERT INTO email_inviata_log (user_id, contenuti_inclusi, provider_message_id)
+                    VALUES (%s, %s::jsonb, %s)
+                """, (user_id, json.dumps(contenuti), message_id))
                 cur.execute("DELETE FROM email_coda_prossimo_invio WHERE user_id = %s", (user_id,))
                 conn.commit()
             except Exception as e:
@@ -280,7 +281,10 @@ def invia_email_engagement_batch(conn, dry_run=True):
                 risultati.append({"user_id": user_id, "esito": "fallita", "errore": str(e)})
                 continue
 
-        risultati.append({"user_id": user_id, "esito": "inviata" if not dry_run else "simulata",
-                           "oggetto": oggetto, "n_voci": len(voci)})
+        risultato = {"user_id": user_id, "esito": "inviata" if not dry_run else "simulata",
+                     "oggetto": oggetto, "n_voci": len(voci)}
+        if not dry_run:
+            risultato["provider_message_id"] = message_id
+        risultati.append(risultato)
 
     return risultati
