@@ -17,7 +17,7 @@ from schemas.users import (
     PaymentMethodRequest, RequestOtpRequest, VerifyOtpRequest, VerifyOtpResponse,
 )
 from security import create_session_token, hash_otp, verify_otp_hash
-from services import engagement
+from services import engagement, onboarding_export
 from services.email_provider import get_email_provider
 
 # Ordine degli step del wizard onboarding lato frontend (v.
@@ -253,6 +253,22 @@ def stato_onboarding(user_id: UUID):
         cur.execute("UPDATE users SET stato_account = 'Attivo' WHERE user_id = %s", (str(user_id),))
         conn.commit()
         r = {**r, "stato_account": "Attivo"}
+        # RF-25h (v. CLAUDE.md — richiesta esplicita dell'utente, 2026-09-04):
+        # da qui in avanti ogni utente che completa l'onboarding per la
+        # prima volta ottiene automaticamente il file di export consolidato
+        # su R2 — stesso identico contenuto/percorso già usato per l'export
+        # manuale via scripts/export_onboarding_json.py (stessa funzione
+        # condivisa in services/onboarding_export.py, mai due logiche
+        # parallele). Guardato dallo stesso confronto stato_account ==
+        # 'In attesa' esatto sopra, quindi scatta una sola volta per utente
+        # (non a ogni GET /status successivo). Un fallimento qui (R2 non
+        # raggiungibile, credenziali assenti) non deve mai bloccare
+        # l'attivazione dell'account — stesso principio già applicato al
+        # report personale RF-28/services/personal_report.py.
+        try:
+            onboarding_export.genera_e_carica(cur, str(user_id))
+        except Exception as e:
+            print(f"[ERRORE] export onboarding automatico fallito per {user_id}: {e}")
     conn.close()
 
     carta_ok = r["metodo_pagamento_token"] is not None

@@ -83,7 +83,12 @@ DEALBREAKER = {
 SOFT_CRITERIA = {
     "user_id": ALBERTO_UID, "pref_altezza_min": 155, "pref_altezza_max": 175,
     "pref_stato_civile_accettato": "Nubile", "pref_titolo_studio": "Laurea", "pref_corporatura": "Media",
-    "pref_fumo": False, "pref_alcol": None, "pref_fede_religiosa": None, "pref_importanza_religione": None,
+    "pref_fumo": False, "pref_alcol": None,
+    # pref_fede_religiosa/pref_importanza_religione: mancanti nell'export
+    # iniziale (v. CLAUDE.md), ridomandate all'utente e risposte il
+    # 2026-09-04 — pref_alcol resta None, "nessuna preferenza" è la
+    # risposta data, non un campo ancora da colmare.
+    "pref_fede_religiosa": "Nessuna preferenza", "pref_importanza_religione": 2,
 }
 
 PSYCHOMETRIC = {
