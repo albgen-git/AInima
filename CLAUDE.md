@@ -628,6 +628,10 @@ Richiesto esplicitamente dall'utente per testare a ritmo serrato i flussi di das
 
 **"Abbinamenti" — NON incluso in questo cambio, segnalato esplicitamente**: `system_config.cadenza_giorni_proposta_abbinamento` esiste (default 30) ma non è mai letto da alcun codice — il ciclo di matching (RF-11) non ha uno scheduler reale, va lanciato a mano (gap già noto, v. voce RF-32d sopra). Cambiarne il valore non avrebbe alcun effetto. Non toccato — richiede una decisione esplicita dell'utente su come procedere (v. conversazione).
 
+## Console di configurazione riorganizzata in paragrafi (2026-09-05)
+
+Richiesto esplicitamente dall'utente: l'elenco piatto di 32 righe di `system_config` era difficile da scorrere. Classificate in 6 gruppi logici (`GRUPPI_CONFIG` in `backend/routers/admin_viewer.py`): Pesi dell'algoritmo di matching, Soglie e parametri di matching, Timeout e scadenze, Cadenze periodiche (cron/engagement), Sicurezza e anti-abuso (OTP), Pagamenti e onboarding — tutte e 32 le chiavi esistenti rientrano in uno dei 6 gruppi, nessuna finita nel fallback "Altro" (che resta comunque disponibile per chiavi future non ancora classificate — aggiungerne una nuova a `system_config` non la nasconde mai, solo non le assegna subito un paragrafo dedicato). Nessuna modifica al comportamento di salvataggio/validazione per riga, solo raggruppamento visivo — stessa form-per-riga di prima, ora dentro `<section>` con intestazione.
+
 ## Come lavorare su questo progetto
 
 - I documenti in `docs/` sono bozze v1 "a cura dello psicologo del progetto" — contengono razionale clinico/psicologico dietro le scelte algoritmiche (es. perché la penalità di sbilanciamento di maturità emotiva è a soglia e non lineare, perché la combinazione "ansia alta in un partner + evitamento alto nell'altro" pesa più di una semplice media nella formula di compatibilità di attaccamento). Quando si implementa la logica di matching, preservare questo razionale nei commenti/decisioni di design, non solo la formula.

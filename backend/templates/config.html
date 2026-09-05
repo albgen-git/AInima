@@ -25,6 +25,8 @@
   section.azioni p.sub { margin: 0 0 12px; }
   section.azioni .pulsanti { display: flex; gap: 10px; }
   section.azioni button { background: #3a9d6b; }
+  section.gruppo { margin-bottom: 28px; }
+  section.gruppo h2 { font-size: 13px; margin: 0 0 8px; color: #ddd; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #333; padding-bottom: 6px; }
   div.esito-banner { border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
   div.esito-banner.ok { background: #1e3a2a; border: 1px solid #3a9d6b; color: #cdeedd; }
   div.esito-banner.no { background: #3a2a1e; border: 1px solid #c98a3a; color: #f0d9bb; }
@@ -73,31 +75,36 @@
     </div>
   </section>
 
-  <table>
-    <tr><th>Chiave</th><th>Descrizione</th><th>Valore attuale</th><th>Ultima modifica</th></tr>
-    {% for r in righe %}
-    <tr>
-      <td class="chiave">{{ r.chiave }}</td>
-      <td class="descrizione">{{ r.descrizione or "" }}</td>
-      <td>
-        <form class="row-form" method="post" action="/config/{{ r.chiave }}/update"
-              onsubmit="return confermaSeNecessario(this, '{{ r.chiave }}', '{{ r.valore }}')">
-          {% if r.chiave in chiavi_bool %}
-          <select name="valore">
-            <option value="true" {% if r.valore == "true" %}selected{% endif %}>Sì</option>
-            <option value="false" {% if r.valore == "false" %}selected{% endif %}>No</option>
-          </select>
-          {% else %}
-          <input type="text" name="valore" value="{{ r.valore }}">
-          {% endif %}
-          <input type="hidden" name="conferma_disattivazione" value="">
-          <button type="submit">Salva</button>
-        </form>
-      </td>
-      <td class="modifica">{{ r.data_ultima_modifica }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+  {% for etichetta, righe_gruppo in gruppi %}
+  <section class="gruppo">
+    <h2>{{ etichetta }}</h2>
+    <table>
+      <tr><th>Chiave</th><th>Descrizione</th><th>Valore attuale</th><th>Ultima modifica</th></tr>
+      {% for r in righe_gruppo %}
+      <tr>
+        <td class="chiave">{{ r.chiave }}</td>
+        <td class="descrizione">{{ r.descrizione or "" }}</td>
+        <td>
+          <form class="row-form" method="post" action="/config/{{ r.chiave }}/update"
+                onsubmit="return confermaSeNecessario(this, '{{ r.chiave }}', '{{ r.valore }}')">
+            {% if r.chiave in chiavi_bool %}
+            <select name="valore">
+              <option value="true" {% if r.valore == "true" %}selected{% endif %}>Sì</option>
+              <option value="false" {% if r.valore == "false" %}selected{% endif %}>No</option>
+            </select>
+            {% else %}
+            <input type="text" name="valore" value="{{ r.valore }}">
+            {% endif %}
+            <input type="hidden" name="conferma_disattivazione" value="">
+            <button type="submit">Salva</button>
+          </form>
+        </td>
+        <td class="modifica">{{ r.data_ultima_modifica }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endfor %}
 
   <script>
     // RF-25e: disattivare verifica_carta_attiva rimuove un filtro

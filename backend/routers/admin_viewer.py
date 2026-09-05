@@ -394,6 +394,38 @@ CONFIG_CHIAVI_BOOL = {"verifica_carta_attiva"}
 CONFIG_CHIAVI_RICHIEDONO_CONFERMA = {"verifica_carta_attiva"}
 
 
+# Classificazione in paragrafi leggibili (richiesta esplicita dell'utente,
+# v. CLAUDE.md: un elenco piatto di ~30 righe era difficile da scorrere).
+# Una chiave non ancora elencata qui finisce comunque in console, dentro il
+# gruppo di fallback "Altro" — aggiungere una nuova chiave a system_config
+# non la nasconde mai, solo non le assegna ancora un paragrafo dedicato.
+GRUPPI_CONFIG = [
+    ("Pesi dell'algoritmo di matching", [
+        "weight_bigfive", "weight_eq_attaccamento", "weight_narrativa", "weight_preferenze_soft",
+        "weight_eq_autoconsapevolezza", "weight_eq_autoregolazione", "weight_eq_empatia", "weight_eq_responsabilita",
+    ]),
+    ("Soglie e parametri di matching", [
+        "soglia_minima_proposta", "soglia_area_urbana_km", "soglia_importanza_vicinanza_esclusione",
+        "soglia_percentile_similarita_visiva", "soglia_similarita_visiva_minima",
+        "dimensione_shortlist_analisi_visiva", "report_top_candidates", "mesi_esclusione_rimatch",
+    ]),
+    ("Timeout e scadenze", [
+        "finestra_risposta_match_giorni", "recupero_accesso_grazia_ore", "otp_scadenza_minuti", "jwt_scadenza_giorni",
+    ]),
+    ("Cadenze periodiche (cron/engagement)", [
+        "cadenza_giorni_proposta_abbinamento", "cadenza_giorni_pillola", "cadenza_giorni_domanda_approfondimento",
+        "cadenza_giorni_ricalcolo_profilo", "cadenza_email_engagement_giorni", "giorno_invio_email_engagement",
+        "giorno_esecuzione_ciclo_mensile",
+    ]),
+    ("Sicurezza e anti-abuso (OTP)", [
+        "otp_rate_limit_ip_per_ora", "otp_richiesta_cooldown_secondi", "otp_tentativi_massimi",
+    ]),
+    ("Pagamenti e onboarding", [
+        "verifica_carta_attiva", "fee_match_confermato_eur",
+    ]),
+]
+
+
 @router.get("/config")
 def console_configurazione(request: Request):
     conn = get_conn()
@@ -401,8 +433,21 @@ def console_configurazione(request: Request):
     cur.execute("SELECT chiave, valore, descrizione, data_ultima_modifica FROM system_config ORDER BY chiave")
     righe = cur.fetchall()
     conn.close()
+
+    per_chiave = {r["chiave"]: r for r in righe}
+    gruppi = []
+    chiavi_classificate = set()
+    for etichetta, chiavi in GRUPPI_CONFIG:
+        righe_gruppo = [per_chiave[c] for c in chiavi if c in per_chiave]
+        chiavi_classificate.update(chiavi)
+        if righe_gruppo:
+            gruppi.append((etichetta, righe_gruppo))
+    non_classificate = [r for r in righe if r["chiave"] not in chiavi_classificate]
+    if non_classificate:
+        gruppi.append(("Altro", non_classificate))
+
     return templates.TemplateResponse(request, "config.html", {
-        "righe": righe, "chiavi_bool": CONFIG_CHIAVI_BOOL,
+        "gruppi": gruppi, "chiavi_bool": CONFIG_CHIAVI_BOOL,
     })
 
 
