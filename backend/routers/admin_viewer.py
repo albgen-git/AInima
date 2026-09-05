@@ -17,6 +17,7 @@ produzione avrà una propria coppia indipendente, v. .env/render.yaml)."""
 
 import os
 import secrets
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse
@@ -403,6 +404,43 @@ def console_configurazione(request: Request):
     return templates.TemplateResponse(request, "config.html", {
         "righe": righe, "chiavi_bool": CONFIG_CHIAVI_BOOL,
     })
+
+
+# Trigger manuale di abbinamento (richiesto esplicitamente dall'utente,
+# v. CLAUDE.md — testare a ritmo serrato dashboard/rubrica sui 2 account
+# reali) — persone fisse, non un campo user_id libero: è un pulsante di
+# test scoped ai 2 soli account reali del sistema, non un trigger generico
+# che potrebbe colpire per errore un profilo demo o un utente sbagliato.
+TRIGGER_ABBINAMENTO_PERSONE = {
+    "alberto": ("Alberto", UUID("cbee971b-10f1-44d3-b35b-751cb81ff906")),
+    "danae": ("Danae", UUID("43ac592d-4179-4671-a967-eba1802acbc7")),
+}
+
+
+@router.post("/config/trigger-abbinamento/{persona}")
+def trigger_abbinamento_manuale(persona: str, operatore: str = Depends(verifica_staff)):
+    """Riusa find_best_match/proponi_match_singolo così come sono già
+    (routers/matching.py) — nessuna logica di matching duplicata qui,
+    stesso principio già seguito ovunque nel progetto (v. CLAUDE.md)."""
+    if persona not in TRIGGER_ABBINAMENTO_PERSONE:
+        raise HTTPException(404, "Persona non riconosciuta")
+    label, user_id = TRIGGER_ABBINAMENTO_PERSONE[persona]
+
+    from routers.matching import proponi_match_singolo
+    esito = proponi_match_singolo(user_id)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    _log_azione(cur, operatore, "trigger_abbinamento_manuale",
+                f"persona={label} esito={esito.get('esito')}")
+    conn.commit()
+    conn.close()
+
+    return RedirectResponse(
+        url=f"/config?trigger_persona={label}&trigger_esito={esito.get('esito')}"
+            f"&trigger_score={esito.get('final_score', '')}",
+        status_code=303,
+    )
 
 
 @router.post("/config/{chiave}/update")

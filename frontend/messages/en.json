@@ -17,7 +17,14 @@
     "no": "No",
     "optional": "Optional",
     "required": "Required",
-    "indifferent": "No preference"
+    "indifferent": "No preference",
+    "importanceScale": {
+      "1": "1 – Not important at all",
+      "2": "2 – Slightly important",
+      "3": "3 – Fairly important",
+      "4": "4 – Important",
+      "5": "5 – Very important"
+    }
   },
   "nav": {
     "dashboard": "Home",
@@ -190,8 +197,8 @@
       "profileLabel": "Profile photo",
       "profileHint": "Visible to the other party only after a confirmed match.",
       "idealLabel": "\"Ideal partner\" photo (optional)",
-      "idealHint": "A purely visual aesthetic reference — not a real profile. It's used only as a secondary tie-breaker between two candidates already highly compatible on character, never as a primary matching criterion.",
-      "faceGuidance": "For a quick check: face clearly visible and facing the camera, good lighting, only one person in the frame, no sunglasses or hats covering the face.",
+      "idealHint": "A purely visual aesthetic reference — not a real profile. It's used only as a secondary tie-breaker between two candidates already highly compatible on character, never as a primary matching criterion. If you don't have a suitable picture, you can upload a photo of a public figure who reflects the look you have in mind.",
+      "faceGuidance": "For a reliable match: a close-up shot (not full-body), facing the camera and not in profile, in focus and well lit, only one person in the frame, no sunglasses or hats covering the face.",
       "multipleFacesWarning": "We detected more than one person in this photo. For an easier check, prefer a photo where only you appear.",
       "moderationNote": "Every uploaded photo goes through a review before being made visible to other users.",
       "upload": "Upload photo",
@@ -221,6 +228,7 @@
       "altezzaMin": "Preferred minimum height (cm)",
       "altezzaMax": "Preferred maximum height (cm)",
       "statoCivileAccettato": "Preferred civil status",
+      "statoCivileHint": "At least one option must stay selected.",
       "titoloStudio": "Preferred education level",
       "corporatura": "Preferred build",
       "fumo": "Smoking preference",
@@ -254,6 +262,9 @@
     "attaccamento": {
       "title": "How you experience closeness",
       "subtitle": "19 statements, no right or wrong answer: go with your gut, thinking about your romantic relationships.",
+      "frameworkTitle": "Before you start",
+      "frameworkBody": "The questions that follow aren't about one specific relationship from your past, or a partner you're imagining for the future: they're about how you generally experience emotional closeness in the important romantic relationships you've had, drawing together even quite different experiences into one underlying pattern. If you've never had a stable relationship, that's completely fine — just answer instinctively, thinking about how you tend to behave in significant emotional bonds in general (not necessarily romantic ones), or how you imagine you'd behave in a close relationship.",
+      "frameworkCta": "Got it, let's start",
       "scale1": "Strongly disagree",
       "scale2": "Slightly disagree",
       "scale3": "Neutral / Depends",
@@ -276,6 +287,9 @@
     "profiloRelazionale": {
       "title": "Values, lifestyle, and aspirations",
       "subtitle": "26 statements about you and the partner you picture — no right or wrong answer: go with your gut.",
+      "dinamicaFrameworkTitle": "Before you continue",
+      "dinamicaFrameworkBody": "The next questions about yourself refer to being in a couple (\"In a relationship...\"): again, don't think of one specific past relationship or an imagined partner, but your general way of experiencing these aspects in the important romantic relationships you've had. If you've never had a stable relationship, just answer instinctively, thinking about how you tend to behave in significant emotional bonds in general.",
+      "dinamicaFrameworkCta": "Got it, continue",
       "scale1": "Strongly disagree",
       "scale2": "Slightly disagree",
       "scale3": "Neutral / Depends",
@@ -304,7 +318,10 @@
       "partnerVorreiHint": "Qualities or interests you'd value in the person you'll meet.",
       "partnerNonVorrei": "What you wouldn't want in a partner",
       "partnerNonVorreiHint": "Traits or habits you'd rather avoid.",
-      "placeholder": "e.g. cats, hiking, cooking",
+      "placeholderMiPiace": "e.g. cooking, hiking, cinema",
+      "placeholderNonSopporto": "e.g. rudeness, messiness, lateness",
+      "placeholderPartnerVorrei": "e.g. humor, curiosity, empathy",
+      "placeholderPartnerNonVorrei": "e.g. jealousy, dishonesty, laziness",
       "submit": "Continue"
     },
     "summary": {
@@ -376,9 +393,10 @@
       "subtitle": "Replace them any time — new photos go through automatic review again.",
       "profileLabel": "Profile photo",
       "idealLabel": "Ideal partner",
+      "idealHint": "A purely aesthetic reference, not a real profile — you can also upload a photo of a public figure who reflects the look you have in mind.",
       "noPhoto": "No photo",
       "noIdealPhoto": "Not uploaded — optional",
-      "faceGuidance": "For a quick check: face clearly visible and facing the camera, good lighting, only one person in the frame, no sunglasses or hats covering the face.",
+      "faceGuidance": "For a reliable match: a close-up shot (not full-body), facing the camera and not in profile, in focus and well lit, only one person in the frame, no sunglasses or hats covering the face.",
       "multipleFacesWarning": "We detected more than one person in this photo. For an easier check, prefer a photo where only you appear.",
       "upload": "Upload photo",
       "change": "Replace",

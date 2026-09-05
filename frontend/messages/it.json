@@ -17,7 +17,14 @@
     "no": "No",
     "optional": "Facoltativo",
     "required": "Obbligatorio",
-    "indifferent": "Indifferente"
+    "indifferent": "Indifferente",
+    "importanceScale": {
+      "1": "1 – Per niente importante",
+      "2": "2 – Poco importante",
+      "3": "3 – Abbastanza importante",
+      "4": "4 – Importante",
+      "5": "5 – Molto importante"
+    }
   },
   "nav": {
     "dashboard": "Home",
@@ -163,7 +170,7 @@
       "alcol": "Bevi alcolici?",
       "stileVitaSport": "Attività sportiva",
       "stileVitaSportPlaceholder": "Es. corsa 2 volte a settimana, nessuno sport, palestra...",
-      "comuneResidenza": "Comune di residenza",
+      "comuneResidenza": "Città di residenza",
       "titoloStudio": "Titolo di studio",
       "titoloStudioOptions": {
         "Diploma": "Diploma",
@@ -190,8 +197,8 @@
       "profileLabel": "Foto profilo",
       "profileHint": "Visibile all'altra parte solo dopo un abbinamento confermato.",
       "idealLabel": "Foto del \"partner ideale\" (facoltativa)",
-      "idealHint": "Un riferimento estetico puramente visivo — non un profilo reale. Viene usato solo come criterio secondario di spareggio tra due candidati già molto compatibili sul piano caratteriale, mai come criterio primario di abbinamento.",
-      "faceGuidance": "Per una verifica rapida: volto ben visibile e rivolto verso la fotocamera, buona illuminazione, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
+      "idealHint": "Un riferimento estetico puramente visivo — non un profilo reale. Viene usato solo come criterio secondario di spareggio tra due candidati già molto compatibili sul piano caratteriale, mai come criterio primario di abbinamento. Se non hai un'immagine adatta, puoi caricare la foto di un personaggio pubblico che rispecchi l'estetica che hai in mente.",
+      "faceGuidance": "Per un confronto affidabile: foto in primo piano (non a figura intera), viso frontale e non di profilo, a fuoco e ben illuminato, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
       "multipleFacesWarning": "Abbiamo rilevato più di una persona in questa foto. Per una verifica più semplice, preferisci una foto in cui compari solo tu.",
       "moderationNote": "Ogni foto caricata passa da una verifica prima di essere resa visibile ad altri utenti.",
       "upload": "Carica foto",
@@ -221,6 +228,7 @@
       "altezzaMin": "Altezza minima gradita (cm)",
       "altezzaMax": "Altezza massima gradita (cm)",
       "statoCivileAccettato": "Stato civile gradito",
+      "statoCivileHint": "Devi lasciare almeno un'opzione selezionata.",
       "titoloStudio": "Titolo di studio gradito",
       "corporatura": "Corporatura gradita",
       "fumo": "Preferenza fumo",
@@ -254,6 +262,9 @@
     "attaccamento": {
       "title": "Come vivi i legami",
       "subtitle": "19 affermazioni, nessuna risposta giusta o sbagliata: rispondi d'istinto pensando alle tue relazioni sentimentali.",
+      "frameworkTitle": "Prima di iniziare",
+      "frameworkBody": "Le domande che seguono non riguardano una relazione specifica che hai avuto in passato, né un partner immaginato per il futuro: riguardano il tuo modo generale di vivere la vicinanza emotiva nelle relazioni sentimentali importanti che hai avuto, mettendo insieme esperienze anche diverse tra loro in un'unica tendenza di fondo. Se non hai mai avuto una relazione stabile, va benissimo lo stesso: rispondi d'istinto pensando a come tendi a comportarti nei legami affettivi importanti in generale, anche non di coppia, o a come immagini di comportarti in una relazione vicina.",
+      "frameworkCta": "Ho capito, iniziamo",
       "scale1": "Per nulla d'accordo",
       "scale2": "Poco d'accordo",
       "scale3": "Neutro / Dipende",
@@ -276,6 +287,9 @@
     "profiloRelazionale": {
       "title": "Valori, stile di vita e aspirazioni",
       "subtitle": "26 affermazioni su di te e sul partner che immagini — nessuna risposta giusta o sbagliata: rispondi d'istinto.",
+      "dinamicaFrameworkTitle": "Prima di continuare",
+      "dinamicaFrameworkBody": "Le prossime domande su di te fanno riferimento alla vita di coppia (\"Nella coppia...\"): anche qui non pensare a una relazione specifica del passato o a un partner immaginato, ma al tuo modo generale di vivere questi aspetti nelle relazioni sentimentali importanti che hai avuto. Se non hai mai avuto una relazione stabile, rispondi comunque d'istinto, pensando a come tendi a comportarti nei legami affettivi importanti in generale.",
+      "dinamicaFrameworkCta": "Ho capito, continua",
       "scale1": "Per nulla d'accordo",
       "scale2": "Poco d'accordo",
       "scale3": "Neutro / Dipende",
@@ -304,7 +318,10 @@
       "partnerVorreiHint": "Qualità o interessi che apprezzeresti nella persona che incontrerai.",
       "partnerNonVorrei": "Cosa non vorresti nel partner",
       "partnerNonVorreiHint": "Tratti o abitudini che preferiresti evitare.",
-      "placeholder": "es. gatti, montagna, cucina",
+      "placeholderMiPiace": "es. cucina, escursionismo, cinema",
+      "placeholderNonSopporto": "es. maleducazione, disordine, ritardi",
+      "placeholderPartnerVorrei": "es. ironia, curiosità, empatia",
+      "placeholderPartnerNonVorrei": "es. gelosia, disonestà, pigrizia",
       "submit": "Continua"
     },
     "summary": {
@@ -376,9 +393,10 @@
       "subtitle": "Sostituiscile in qualsiasi momento — le nuove foto passano di nuovo dalla verifica automatica.",
       "profileLabel": "Foto profilo",
       "idealLabel": "Partner ideale",
+      "idealHint": "Un riferimento puramente estetico, non un profilo reale — puoi caricare anche la foto di un personaggio pubblico che rispecchi l'estetica che hai in mente.",
       "noPhoto": "Nessuna foto",
       "noIdealPhoto": "Non caricata — facoltativa",
-      "faceGuidance": "Per una verifica rapida: volto ben visibile e rivolto verso la fotocamera, buona illuminazione, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
+      "faceGuidance": "Per un confronto affidabile: foto in primo piano (non a figura intera), viso frontale e non di profilo, a fuoco e ben illuminato, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
       "multipleFacesWarning": "Abbiamo rilevato più di una persona in questa foto. Per una verifica più semplice, preferisci una foto in cui compari solo tu.",
       "upload": "Carica foto",
       "change": "Sostituisci",

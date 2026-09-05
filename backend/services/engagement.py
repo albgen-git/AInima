@@ -119,37 +119,44 @@ def registra_risposta_affinamento(cur, user_id, item_id, risposta: int):
 
 
 def assegna_pillola(cur, user_id, contesto_trigger="Attesa generale"):
-    """T2 (§3.2) — tag-matching puro, zero LLM nel percorso critico:
-    sceglie la prima pillola attiva del contesto richiesto il cui tag di
-    personalizzazione combacia con un segnale noto dell'utente
-    (ansia_score/evitamento_score alti, eq_pilastro_empatia basso); in
-    assenza di segnali specifici, sceglie contenuto generico del
-    pilastro in rotazione (tag_personalizzazione vuoto). Mai riproposta
-    due volte (pillole_inviate_log, PK (user_id, pillola_id))."""
-    cur.execute("SELECT ansia_score, evitamento_score, eq_pilastro_empatia FROM psychometric_scores WHERE user_id = %s",
-                (str(user_id),))
-    r = cur.fetchone() or {}
-    tag_utente = []
-    if (r.get("ansia_score") or 0) > 0.7:
-        tag_utente.append("ansia_alta")
-    if (r.get("evitamento_score") or 0) > 0.7:
-        tag_utente.append("evitamento_alto")
-    if r.get("eq_pilastro_empatia") is not None and r["eq_pilastro_empatia"] < 0.3:
-        tag_utente.append("empatia_bassa")
+    """"Pillola del giorno" (Ainima_Dashboard_Trigger_Email_v1.md §2.1bis,
+    v. CLAUDE.md) — sostituisce il precedente tag-matching, ormai inerte:
+    le pillole sono general purpose (non personalizzate su un dato
+    specifico dell'utente, v. Ainima_Prompt_Generazione_Live_Pillole_v3.md),
+    quindi non c'è più nulla da abbinare a `tag_personalizzazione` (la
+    colonna resta a schema per un eventuale uso futuro, solo la logica di
+    selezione qui non la usa più).
 
+    Sceglie SEMPRE la pillola più recente (`data_creazione`) attiva nel
+    contesto richiesto — non la più vecchia non ancora letta da questo
+    utente, non una selezione personalizzata. Chiunque venga controllato
+    lo stesso giorno di calendario riceve lo stesso identico testo: è il
+    comportamento voluto, non un bug — dà una risposta univoca e semplice
+    a un'eventuale contestazione ("cosa avete mandato quel giorno?"),
+    mentre la tracciabilità per singolo invio resta comunque garantita da
+    pillole_inviate_log (user_id, pillola_id, data_invio, aperta),
+    invariata.
+
+    Un UPSERT (non un semplice INSERT) evita un conflitto sulla chiave
+    (user_id, pillola_id): se la libreria non viene aggiornata per più di
+    una soglia (es. il cron di generazione salta un giorno), la "pillola
+    del giorno" per un utente che ricontrolla potrebbe risultare la
+    stessa già inviatagli in precedenza — in quel caso si aggiorna
+    semplicemente data_invio/aperta invece di fallire l'assegnazione."""
     cur.execute("""
         SELECT pillola_id, titolo FROM pillole_libreria
         WHERE attiva AND contesto_trigger = %s
-          AND pillola_id NOT IN (SELECT pillola_id FROM pillole_inviate_log WHERE user_id = %s)
-        ORDER BY (tag_personalizzazione && %s::varchar[]) DESC, random()
+        ORDER BY data_creazione DESC, pillola_id DESC
         LIMIT 1
-    """, (contesto_trigger, str(user_id), tag_utente))
+    """, (contesto_trigger,))
     pillola = cur.fetchone()
     if not pillola:
         return None
 
-    cur.execute("INSERT INTO pillole_inviate_log (user_id, pillola_id) VALUES (%s, %s)",
-                 (str(user_id), str(pillola["pillola_id"])))
+    cur.execute("""
+        INSERT INTO pillole_inviate_log (user_id, pillola_id) VALUES (%s, %s)
+        ON CONFLICT (user_id, pillola_id) DO UPDATE SET data_invio = now(), aperta = FALSE
+    """, (str(user_id), str(pillola["pillola_id"])))
     aggiungi_a_coda_email(cur, user_id, "pillola", pillola["pillola_id"])
     return pillola
 
@@ -208,7 +215,7 @@ def invia_email_engagement_batch(conn, dry_run=True):
     cadenza_giorni = int(cur.fetchone()["valore"])
 
     cur.execute("""
-        SELECT ec.coda_id, ec.user_id, ec.tipo_contenuto, ec.contenuto_id, u.email
+        SELECT ec.coda_id, ec.user_id, ec.tipo_contenuto, ec.contenuto_id, u.email, u.is_demo
         FROM email_coda_prossimo_invio ec
         JOIN users u ON u.user_id = ec.user_id
         ORDER BY ec.user_id
@@ -217,7 +224,7 @@ def invia_email_engagement_batch(conn, dry_run=True):
 
     per_utente = {}
     for r in righe:
-        blocco = per_utente.setdefault(str(r["user_id"]), {"email": r["email"], "voci": []})
+        blocco = per_utente.setdefault(str(r["user_id"]), {"email": r["email"], "is_demo": r["is_demo"], "voci": []})
         blocco["voci"].append(r)
 
     risultati = []
@@ -268,7 +275,22 @@ def invia_email_engagement_batch(conn, dry_run=True):
             # nuovo — email duplicate a utenti reali. Ogni utente è quindi un
             # tentativo isolato: un fallimento non tocca gli altri.
             try:
-                message_id = email_provider.get_email_provider().invia_notifica(blocco["email"], oggetto, corpo_html)
+                # RNF-12 (v. CLAUDE.md): i profili demo (is_demo=TRUE, i
+                # ~1000 generati dal seed) hanno stato_account='Attivo' per
+                # essere visibili nel matching demo, quindi un cron che
+                # scorra ciecamente tutti gli "Attivi" li tratterebbe come
+                # utenti reali da contattare — rischio concreto di invio di
+                # massa verso indirizzi fittizi, con danno alla reputazione
+                # del dominio mittente (impatta anche le email davvero
+                # importanti, es. OTP). La logica di tracciamento sotto
+                # (email_inviata_log, svuotamento coda) gira IDENTICA sia
+                # per demo sia per reali, così il flusso resta testabile
+                # sul pool demo — solo la chiamata al provider è saltata.
+                if blocco["is_demo"]:
+                    message_id = None
+                    print(f"[DEMO] invio email saltato per utente demo {user_id} (oggetto: {oggetto!r})")
+                else:
+                    message_id = email_provider.get_email_provider().invia_notifica(blocco["email"], oggetto, corpo_html)
                 contenuti = [{"tipo": v["tipo_contenuto"], "id": str(v["contenuto_id"])} for v in voci]
                 cur.execute("""
                     INSERT INTO email_inviata_log (user_id, contenuti_inclusi, provider_message_id)
@@ -281,7 +303,8 @@ def invia_email_engagement_batch(conn, dry_run=True):
                 risultati.append({"user_id": user_id, "esito": "fallita", "errore": str(e)})
                 continue
 
-        risultato = {"user_id": user_id, "esito": "inviata" if not dry_run else "simulata",
+        risultato = {"user_id": user_id,
+                     "esito": ("simulata" if dry_run else "saltata_demo" if blocco["is_demo"] else "inviata"),
                      "oggetto": oggetto, "n_voci": len(voci)}
         if not dry_run:
             risultato["provider_message_id"] = message_id

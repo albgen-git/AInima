@@ -40,28 +40,28 @@ export function StepInterestTags({ state, update, onNext, onBack }: StepProps) {
         <TextField
           label={t("miPiace")}
           hint={t("miPiaceHint")}
-          placeholder={t("placeholder")}
+          placeholder={t("placeholderMiPiace")}
           value={state.mi_piace}
           onChange={(e) => update("mi_piace", e.target.value)}
         />
         <TextField
           label={t("nonSopporto")}
           hint={t("nonSopportoHint")}
-          placeholder={t("placeholder")}
+          placeholder={t("placeholderNonSopporto")}
           value={state.non_sopporto}
           onChange={(e) => update("non_sopporto", e.target.value)}
         />
         <TextField
           label={t("partnerVorrei")}
           hint={t("partnerVorreiHint")}
-          placeholder={t("placeholder")}
+          placeholder={t("placeholderPartnerVorrei")}
           value={state.partner_vorrei}
           onChange={(e) => update("partner_vorrei", e.target.value)}
         />
         <TextField
           label={t("partnerNonVorrei")}
           hint={t("partnerNonVorreiHint")}
-          placeholder={t("placeholder")}
+          placeholder={t("placeholderPartnerNonVorrei")}
           value={state.partner_non_vorrei}
           onChange={(e) => update("partner_non_vorrei", e.target.value)}
         />

@@ -22,6 +22,8 @@ export function StepAttaccamento({ state, update, onNext, onBack }: StepProps) {
   const locale = useLocale();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [frameworkDismissed, setFrameworkDismissed] = useState(false);
   const { run, loading, error } = useAsyncAction(psychometricApi.submitAttaccamento);
 
   const item = ATTACCAMENTO_ITEMS[index];
@@ -29,18 +31,30 @@ export function StepAttaccamento({ state, update, onNext, onBack }: StepProps) {
   const scaleLabels = [t("scale1"), t("scale2"), t("scale3"), t("scale4"), t("scale5")];
 
   async function selectAnswer(value: number) {
+    if (selected !== null) return;
+    setSelected(value);
     const next = { ...answers, [item.code]: value };
     setAnswers(next);
 
+    // Piccola pausa per dare un feedback visivo della risposta selezionata
+    // prima di avanzare — altrimenti il click sembra non avere alcun effetto.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
     if (!isLast) {
+      setSelected(null);
       setIndex((i) => i + 1);
       return;
     }
-    if (!state.userId) return;
+    if (!state.userId) {
+      setSelected(null);
+      return;
+    }
     const result = await run(state.userId, { risposte: next });
     if (result) {
       update("attaccamentoCompletato", true);
       onNext();
+    } else {
+      setSelected(null);
     }
   }
 
@@ -54,6 +68,21 @@ export function StepAttaccamento({ state, update, onNext, onBack }: StepProps) {
             {tCommon("back")}
           </Button>
           <Button onClick={onNext}>{tCommon("continue")}</Button>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!frameworkDismissed) {
+    return (
+      <Card>
+        <h1 className="font-display text-2xl text-navy">{t("frameworkTitle")}</h1>
+        <p className="mt-4 text-sm text-slate">{t("frameworkBody")}</p>
+        <div className="mt-6 flex gap-3">
+          <Button variant="secondary" onClick={onBack}>
+            {tCommon("back")}
+          </Button>
+          <Button onClick={() => setFrameworkDismissed(true)}>{t("frameworkCta")}</Button>
         </div>
       </Card>
     );
@@ -84,10 +113,14 @@ export function StepAttaccamento({ state, update, onNext, onBack }: StepProps) {
             <button
               key={value}
               type="button"
-              disabled={loading}
+              disabled={loading || selected !== null}
               onClick={() => selectAnswer(value)}
               className={cn(
-                "rounded-xl border border-border bg-ivory-light px-4 py-3 text-left text-sm text-navy transition-colors hover:border-navy hover:bg-border disabled:opacity-50"
+                "rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+                selected === value
+                  ? "border-navy bg-navy text-ivory"
+                  : "border-border bg-ivory-light text-navy hover:border-navy hover:bg-border",
+                selected !== null && selected !== value && "opacity-40"
               )}
             >
               {scaleLabels[i]}
@@ -101,7 +134,8 @@ export function StepAttaccamento({ state, update, onNext, onBack }: StepProps) {
           <Button
             variant="secondary"
             type="button"
-            onClick={() => (index === 0 ? onBack() : setIndex((i) => i - 1))}
+            disabled={selected !== null}
+            onClick={() => (index === 0 ? setFrameworkDismissed(false) : setIndex((i) => i - 1))}
           >
             {tCommon("back")}
           </Button>

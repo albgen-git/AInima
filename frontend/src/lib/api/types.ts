@@ -237,7 +237,7 @@ export interface SoftCriteriaOut {
   user_id: string;
   pref_altezza_min: number | null;
   pref_altezza_max: number | null;
-  pref_stato_civile_accettato: string | null;
+  pref_stato_civile_accettato: string[] | null;
   pref_titolo_studio: string | null;
   pref_corporatura: string | null;
   pref_fumo: boolean | null;
@@ -262,7 +262,7 @@ export interface DealbreakerCriteriaIn {
 export interface SoftCriteriaIn {
   pref_altezza_min?: number | null;
   pref_altezza_max?: number | null;
-  pref_stato_civile_accettato?: string | null;
+  pref_stato_civile_accettato?: string[] | null;
   pref_titolo_studio?: string | null;
   pref_corporatura?: string | null;
   pref_fumo?: boolean | null;

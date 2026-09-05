@@ -242,6 +242,23 @@ Punteggio_Narrativo = Punteggio_Narrativo_Strutturato
 // già include la penalità di asimmetria per sotto-dimensione
 ```
 
+**Limite noto — gestione del dato mancante (trovato durante il debug
+del report di abbinamento, non implementato per scelta):**
+`punteggio_narrativo_strutturato()` ritorna un fallback neutro (0.5)
+quando il Test Profilo Relazionale manca da almeno un lato — oggi
+questo entra nel `FINAL_SCORE` con il pieno peso `w3`, come un dato
+reale. In astratto non è ideale (un placeholder pesato come un fatto),
+ma **non richiede correzione ora**: lo scenario esiste solo nel pool
+sintetico di test, mai in produzione, perché il Test Profilo
+Relazionale è obbligatorio per l'attivazione fin da quando esiste
+(Blocco D) e non ci sono ancora utenti reali attivati prima di allora
+da fare grandfathering. Se in futuro il gate obbligatorio venisse
+allentato, o si scoprisse un bug che permette di bypassarlo, questo
+limite tornerebbe rilevante — a quel punto la correzione naturale è
+un meccanismo di confidenza ridotta sul contributo narrativo,
+speculare a quello già usato per Big Five/EQ/Attaccamento (§3-4),
+invece del trattamento a piena confidenza di oggi.
+
 ---
 
 ## 6. STEP 4 — Preferenze Soft (estetica e stile di vita dichiarato)

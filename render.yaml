@@ -55,3 +55,16 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # RF-32d: protegge POST /internal/cron/engagement-daily
+      # (routers/internal_cron.py) — confrontato con l'header
+      # X-Cron-Secret. Scelto DELIBERATAMENTE al posto di un Render Cron
+      # Job dedicato: quest'ultimo fattura al minuto anche per esecuzioni
+      # brevi (minimo $1/mese sul piano Starter, non disponibile sul
+      # piano Free usato qui) — un costo evitabile per un endpoint che il
+      # servizio web già gratuito può esporre. Lo scheduling reale vive
+      # invece in .github/workflows/engagement-cron.yml (GitHub Actions,
+      # runner gratuiti), che chiama questo endpoint una volta al giorno
+      # passando lo stesso valore come GitHub Secret del repository —
+      # mai in chiaro nel workflow YAML.
+      - key: CRON_SECRET
+        sync: false

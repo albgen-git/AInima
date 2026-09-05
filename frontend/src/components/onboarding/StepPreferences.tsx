@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, SelectField, TextField } from "@/components
 import { preferencesApi, profileApi } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import type { StepProps } from "@/lib/wizard/types";
+import { StatoCivileAccettatoField } from "./StatoCivileAccettatoField";
 
 const GENERE_VALUES = ["Maschile", "Femminile", "Non binario", "Altro"] as const;
 const ACCETTA_FIGLI_VALUES = ["Si", "No", "Indifferente"] as const;
@@ -74,7 +75,7 @@ export function StepPreferences({ state, update, onNext, onBack }: StepProps) {
     const softResult = await softAction.run(state.userId, {
       pref_altezza_min: state.pref_altezza_min ? Number(state.pref_altezza_min) : null,
       pref_altezza_max: state.pref_altezza_max ? Number(state.pref_altezza_max) : null,
-      pref_stato_civile_accettato: state.pref_stato_civile_accettato || null,
+      pref_stato_civile_accettato: state.pref_stato_civile_accettato,
       pref_titolo_studio: state.pref_titolo_studio || null,
       pref_corporatura: state.pref_corporatura || null,
       pref_fumo: state.pref_fumo,
@@ -143,7 +144,7 @@ export function StepPreferences({ state, update, onNext, onBack }: StepProps) {
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
-                {n}
+                {tCommon(`importanceScale.${n}`)}
               </option>
             ))}
           </SelectField>
@@ -209,10 +210,9 @@ export function StepPreferences({ state, update, onNext, onBack }: StepProps) {
             />
           </div>
 
-          <TextField
-            label={t("statoCivileAccettato")}
+          <StatoCivileAccettatoField
             value={state.pref_stato_civile_accettato}
-            onChange={(e) => update("pref_stato_civile_accettato", e.target.value)}
+            onChange={(v) => update("pref_stato_civile_accettato", v)}
           />
 
           <TextField
@@ -274,7 +274,7 @@ export function StepPreferences({ state, update, onNext, onBack }: StepProps) {
             <option value="">{t("noPreference")}</option>
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
-                {n}
+                {tCommon(`importanceScale.${n}`)}
               </option>
             ))}
           </SelectField>

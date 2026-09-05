@@ -367,7 +367,8 @@ def proponi_match_singolo(user_id: UUID):
         raise HTTPException(404, "Utente non trovato nel pool di matching (deve essere Attivo)")
 
     cfg = matching_engine.load_config_floats(cur)
-    esito = matching_engine.find_best_match(str(user_id), pool, cfg)
+    coppie_escluse = matching_engine.load_coppie_escluse(cur)
+    esito = matching_engine.find_best_match(str(user_id), pool, cfg, coppie_escluse)
     if esito["esito"] != "proposta":
         conn.close()
         return {"esito": esito["esito"]}

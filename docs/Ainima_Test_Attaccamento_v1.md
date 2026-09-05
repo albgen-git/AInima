@@ -35,6 +35,18 @@ Gli item marcati **(R)** sono a punteggio invertito.
 
 ---
 
+## 2bis. Quadro di riferimento (mostrato prima del primo item)
+
+*(Aggiunto dopo un feedback utente reale: persona con relazioni passate diverse tra loro, in difficoltà a capire a cosa riferirsi rispondendo. Mancava un'istruzione esplicita su questo — le domande, lette da sole, si prestano a essere ancorate a una relazione specifica invece che al pattern generale che vogliono misurare.)*
+
+Testo da mostrare come blocco informativo prima della prima domanda (non un item, non richiede risposta):
+
+> **Prima di iniziare**
+>
+> Le domande che seguono non riguardano una relazione specifica che hai avuto in passato, né un partner immaginato per il futuro: riguardano il tuo modo generale di vivere la vicinanza emotiva nelle relazioni sentimentali importanti che hai avuto, mettendo insieme esperienze anche diverse tra loro in un'unica tendenza di fondo. Se non hai mai avuto una relazione stabile, va benissimo lo stesso: rispondi d'istinto pensando a come tendi a comportarti nei legami affettivi importanti in generale, anche non di coppia, o a come immagini di comportarti in una relazione vicina.
+
+---
+
 ## 3. ANSIA DA ABBANDONO — 9 item
 
 *(Revisione: accorciato da 12 a 9 item, riducendo gli item invertiti da 6 a 3 — sufficienti per il controllo dell'acquiescenza senza raddoppiare ogni concetto.)*

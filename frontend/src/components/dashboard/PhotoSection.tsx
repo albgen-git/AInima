@@ -8,6 +8,7 @@ import { useAsyncAction } from "@/lib/useAsyncAction";
 
 function PhotoSlotView({
   label,
+  hint,
   emptyLabel,
   url,
   loading,
@@ -17,6 +18,7 @@ function PhotoSlotView({
   onFile,
 }: {
   label: string;
+  hint?: string;
   emptyLabel: string;
   url: string | null;
   loading: boolean;
@@ -37,6 +39,7 @@ function PhotoSlotView({
   return (
     <div>
       <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
+      {hint && <p className="mb-2 text-center text-xs text-slate">{hint}</p>}
       <div className="flex flex-col items-center gap-3">
         <div className="h-32 w-32 overflow-hidden rounded-full border border-border bg-ivory">
           {url ? (
@@ -147,6 +150,7 @@ export function PhotoSection({ userId }: { userId: string }) {
         />
         <PhotoSlotView
           label={t("idealLabel")}
+          hint={t("idealHint")}
           emptyLabel={t("noIdealPhoto")}
           url={fotoIdeale}
           loading={idealeAction.loading}

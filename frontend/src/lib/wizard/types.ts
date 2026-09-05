@@ -66,7 +66,7 @@ export interface WizardState {
   // Step: criteri soft
   pref_altezza_min: string;
   pref_altezza_max: string;
-  pref_stato_civile_accettato: string;
+  pref_stato_civile_accettato: string[];
   pref_titolo_studio: string;
   pref_corporatura: string;
   pref_fumo: boolean | null;
@@ -145,7 +145,9 @@ export const initialWizardState: WizardState = {
   lingue_parlate: "",
   pref_altezza_min: "",
   pref_altezza_max: "",
-  pref_stato_civile_accettato: "",
+  // Default = tutte e 4 le opzioni ("Nessuna preferenza") — il valore più
+  // amichevole per chi non ha ancora un'opinione in merito.
+  pref_stato_civile_accettato: ["Celibe/Nubile", "Separato/a", "Divorziato/a", "Vedovo/a"],
   pref_titolo_studio: "",
   pref_corporatura: "",
   pref_fumo: null,

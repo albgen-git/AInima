@@ -110,6 +110,26 @@ export default function ProfileEditPage() {
               ))}
             </SelectField>
 
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-navy">{tCivil("haFigliLabel")}</span>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant={profile.ha_figli === true ? "primary" : "secondary"}
+                  onClick={() => update("ha_figli", true)}
+                >
+                  {tCommon("yes")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={profile.ha_figli === false ? "primary" : "secondary"}
+                  onClick={() => update("ha_figli", false)}
+                >
+                  {tCommon("no")}
+                </Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-navy">{tProfile("altezza")}</p>

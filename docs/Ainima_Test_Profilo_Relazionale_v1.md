@@ -41,6 +41,12 @@ convenzione dei test precedenti.
 
 ## 4. CATEGORIA 3 — Dinamica Relazionale (3 sotto-dimensioni, 6 item)
 
+*(Quadro di riferimento — aggiunto dopo lo stesso feedback utente reale che ha motivato §2bis di `Ainima_Test_Attaccamento_v1.md`: solo gli item "su di sé" di QUESTA categoria presuppongono una relazione in corso — "Nella coppia, ho bisogno di..." — a differenza delle altre 3 categorie del test, che non hanno lo stesso problema. Blocco informativo da mostrare una sola volta, subito prima del primo item di questa categoria, non prima delle altre:)*
+
+> **Prima di continuare**
+>
+> Le prossime domande su di te fanno riferimento alla vita di coppia ("Nella coppia..."): anche qui non pensare a una relazione specifica del passato o a un partner immaginato, ma al tuo modo generale di vivere questi aspetti nelle relazioni sentimentali importanti che hai avuto. Se non hai mai avuto una relazione stabile, rispondi comunque d'istinto, pensando a come tendi a comportarti nei legami affettivi importanti in generale.
+
 | Sotto-dimensione | Item su di sé | Item sul partner ideale |
 |---|---|---|
 | Autonomia vs Fusione | Nella coppia, ho bisogno di mantenere spazi e tempi indipendenti dal partner. | Cerco un partner che rispetti e condivida il mio bisogno di autonomia personale. |

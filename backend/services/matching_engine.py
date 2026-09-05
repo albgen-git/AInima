@@ -95,7 +95,7 @@ from services import face_recognition, tag_matching
 # estesa — da aggiornare (nuova riga in quella tabella + bump qui) ogni
 # volta che cambia la LOGICA dell'algoritmo, non i soli parametri (quelli
 # sono già tracciati automaticamente via system_config, v. run_monthly_batch).
-ALGORITMO_VERSIONE = "stable_v9"
+ALGORITMO_VERSIONE = "stable_v11"
 
 # Sopra questa penalità sui rifiuti espliciti, il flag va esposto invece
 # di restare nascosto dentro la media (Ainima_Liste_Piace_Detesta_v1.md §5).
@@ -466,6 +466,26 @@ def hard_filters_ok(seeker, cand, dist_km, cfg):
         return False, None
     if cand["pref_accetta_figli"] == "No" and seeker["ha_figli"]:
         return False, None
+    # STEP 0 (Algoritmo_Ranking_Finale_v1.md §2): "coerenza su figli:
+    # ha_figli/pref_accetta_figli [sopra] E pref_desidera_figli_futuri
+    # reciprocamente compatibili" — questa seconda metà non era mai stata
+    # collegata (v. CLAUDE.md, gap trovato in audit). pref_desidera_figli_futuri
+    # è la pianificazione familiare propria di ciascuno (Sì/No/Da valutare),
+    # non una preferenza sul partner: un contrasto diretto Sì↔No è
+    # un'incompatibilità di piani di vita, mai negoziabile. "Da valutare" non
+    # esclude mai, in nessuna direzione.
+    if {seeker["pref_desidera_figli_futuri"], cand["pref_desidera_figli_futuri"]} == {"Si", "No"}:
+        return False, None
+    # STEP 0 (Algoritmo_Ranking_Finale_v1.md §2): "stato civile compatibile
+    # con pref_stato_civile_accettato" — elencato tra i filtri hard ma mai
+    # collegato finché non richiesto esplicitamente (v. CLAUDE.md). NULL
+    # (preferenza non ancora compilata) equivale a "nessun filtro", stesso
+    # trattamento già riservato a pref_genere_cercato sopra — mai un'esclusione
+    # implicita per chi non ha ancora impostato questo criterio.
+    if seeker["pref_stato_civile_accettato"] and cand["stato_civile"] not in seeker["pref_stato_civile_accettato"]:
+        return False, None
+    if cand["pref_stato_civile_accettato"] and seeker["stato_civile"] not in cand["pref_stato_civile_accettato"]:
+        return False, None
     return True, punteggio_distanza
 
 
@@ -475,11 +495,12 @@ def load_pool(cur):
     batch mensile, per evitare N query ripetute per candidato."""
     cur.execute("""
         SELECT u.user_id, u.nome, u.cognome, u.genere, u.orientamento_sessuale,
-               EXTRACT(YEAR FROM age(u.data_nascita))::int AS eta, u.ha_figli,
+               EXTRACT(YEAR FROM age(u.data_nascita))::int AS eta, u.ha_figli, u.stato_civile,
                s.coordinate_gps[0] AS lon, s.coordinate_gps[1] AS lat,
                d.pref_genere_cercato, d.pref_eta_min, d.pref_eta_max, d.pref_accetta_figli,
+               d.pref_desidera_figli_futuri,
                sc.pref_altezza_min, sc.pref_altezza_max, sc.pref_fumo, sc.pref_alcol,
-               sc.pref_importanza_religione,
+               sc.pref_importanza_religione, sc.pref_stato_civile_accettato,
                p.altezza_cm, p.fumo, p.alcol, p.foto_profilo_url, p.foto_partner_ideale_url,
                so.importanza_religione, so.importanza_vicinanza_geografica, so.lingue_parlate,
                ps.score_big5_estroversione, ps.score_big5_gradevolezza,
@@ -566,10 +587,13 @@ def load_pool(cur):
         pool[r["user_id"]] = {
             "nome": r["nome"], "cognome": r["cognome"], "genere": r["genere"],
             "orientamento": r["orientamento_sessuale"], "eta": r["eta"], "ha_figli": r["ha_figli"],
+            "stato_civile": r["stato_civile"],
             "lon": r["lon"], "lat": r["lat"],
             "pref_genere_cercato": r["pref_genere_cercato"],
             "pref_eta_min": r["pref_eta_min"], "pref_eta_max": r["pref_eta_max"],
             "pref_accetta_figli": r["pref_accetta_figli"],
+            "pref_desidera_figli_futuri": r["pref_desidera_figli_futuri"],
+            "pref_stato_civile_accettato": r["pref_stato_civile_accettato"],
             "pref_altezza_min": r["pref_altezza_min"], "pref_altezza_max": r["pref_altezza_max"],
             "pref_fumo": r["pref_fumo"], "pref_alcol": r["pref_alcol"],
             "pref_importanza_religione": r["pref_importanza_religione"],
@@ -717,19 +741,31 @@ def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n):
     return vincitore_id, vincitore_id != id_ordinati[0]
 
 
-def find_best_match(seeker_id, pool, cfg):
+def find_best_match(seeker_id, pool, cfg, coppie_escluse=None):
     """Applica STEP 0-4 + selezione visiva RF-11a/b per un singolo cercatore
     contro tutto il pool in memoria. Ritorna un dizionario con l'esito
-    strutturato — non scrive nulla, usato sia per l'anteprima sia dal batch
-    mensile."""
+    strutturato — non scrive nulla. Usato dall'anteprima/trigger singolo
+    (routers/matching.py::proponi_match_singolo) — il batch mensile usa
+    invece build_preference_list()+stable_match() (v. run_monthly_batch),
+    non questa funzione, nonostante una vecchia versione di questo
+    docstring dicesse il contrario.
+
+    coppie_escluse (v. load_coppie_escluse, RF-11a aggiornata): stesso
+    filtro usato dal batch mensile, applicato anche qui perché anche il
+    trigger singolo di test/anteprima deve rispettare le esclusioni
+    Confermato/Rifiutato — altrimenti riproporrebbe una coppia appena
+    rifiutata alla prima chiamata successiva."""
     seeker = pool[seeker_id]
 
     if seeker["flag_revisione"]:
         return {"esito": "revisione_umana"}
 
+    coppie_escluse = coppie_escluse or set()
     candidati = []
     for cand_id, cand in pool.items():
         if cand_id == seeker_id:
+            continue
+        if frozenset((seeker_id, cand_id)) in coppie_escluse:
             continue
         dist = haversine_km(seeker["lon"], seeker["lat"], cand["lon"], cand["lat"])
         passa, punteggio_distanza = hard_filters_ok(seeker, cand, dist, cfg)
@@ -774,21 +810,31 @@ def find_best_match(seeker_id, pool, cfg):
     }
 
 
-def load_recent_history_pairs(cur, mesi):
-    """Coppie (frozenset di due user_id) con un match negli ultimi N mesi —
-    caricate una volta in memoria invece di una query per candidato, per
-    evitare N+1 query su un pool di 1000 utenti. V. feedback utente: lo
-    storico deve scoraggiare la ripetizione ravvicinata, non essere una
-    blacklist permanente (per questo la finestra è a N mesi, configurabile
-    via system_config, non un'esclusione per sempre)."""
+def load_coppie_escluse(cur):
+    """RF-11a (aggiornata, v. CLAUDE.md/Documento_Requisiti_v1.md): coppie
+    (frozenset di due user_id) da escludere PERMANENTEMENTE dalle
+    shortlist future — non più una finestra a N mesi. Esclude solo le
+    coppie con un match `Confermato` (già insieme, non ha senso
+    riproporli) o `Rifiutato` (rifiuto esplicito, v. RF-15). Un match
+    `Scaduto` (timeout, nessuna risposta — v. RF-14b) NON esclude: la
+    coppia resta eleggibile "come se non ci fosse mai stato un tentativo
+    precedente" (testo del documento) — per questo la query filtra per
+    STATO, non per finestra temporale su qualunque stato.
+
+    Sostituisce la precedente load_recent_history_pairs()/
+    mesi_esclusione_rimatch (finestra fissa a 6 mesi su QUALUNQUE stato,
+    Scaduto incluso) — quel meccanismo è ora in diretto conflitto con la
+    regola esplicita su Scaduto sopra, quindi ritirato invece di tenuto
+    in parallelo. La chiave system_config.mesi_esclusione_rimatch resta
+    a schema ma non è più letta da nessun codice."""
     cur.execute("""
         SELECT user_a_id, user_b_id FROM matches
-        WHERE data_proposta >= now() - (%s || ' months')::interval
-    """, (mesi,))
+        WHERE stato IN ('Confermato', 'Rifiutato')
+    """)
     return {frozenset((r["user_a_id"], r["user_b_id"])) for r in cur.fetchall()}
 
 
-def build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati):
+def build_preference_list(seeker_id, pool, cfg, coppie_escluse, gia_impegnati):
     """Lista di candidati ordinata per compatibilità dal punto di vista del
     SOLO seeker — usata come input dell'abbinamento stabile (v. sotto).
     RF-11a/RF-11b: la selezione per somiglianza visiva sposta in cima alla
@@ -808,7 +854,7 @@ def build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati):
     for cand_id, cand in pool.items():
         if cand_id == seeker_id or cand_id in gia_impegnati:
             continue
-        if frozenset((seeker_id, cand_id)) in history_pairs:
+        if frozenset((seeker_id, cand_id)) in coppie_escluse:
             continue
         dist = haversine_km(seeker["lon"], seeker["lat"], cand["lon"], cand["lat"])
         passa, punteggio_distanza = hard_filters_ok(seeker, cand, dist, cfg)
@@ -901,14 +947,14 @@ def run_monthly_batch(conn, dry_run=True):
     """RF-11: genera una proposta al mese per ogni utente Attivo, calcolando
     le preferenze di TUTTI prima di decidere qualunque coppia (risolve il
     problema di reciprocità del ciclo greedy precedente — v. discussione
-    con l'utente, 2026-08-13) e tenendo conto dello storico recente (non
-    ripropone una coppia già tentata negli ultimi N mesi, senza escluderla
-    per sempre — parametro system_config.mesi_esclusione_rimatch)."""
+    con l'utente, 2026-08-13) e tenendo conto delle coppie già valutate
+    con esito Confermato/Rifiutato (esclusione permanente, v.
+    load_coppie_escluse — RF-11a aggiornata, non più una finestra a N
+    mesi)."""
     cur = conn.cursor()
     pool = load_pool(cur)
     cfg = load_config_floats(cur)
-    mesi_storico = int(cfg.get("mesi_esclusione_rimatch", 6))
-    history_pairs = load_recent_history_pairs(cur, mesi_storico)
+    coppie_escluse = load_coppie_escluse(cur)
 
     cur.execute("SELECT user_a_id, user_b_id FROM matches WHERE stato IN ('Proposto','Accettato_A','Accettato_B')")
     gia_impegnati = set()
@@ -920,7 +966,7 @@ def run_monthly_batch(conn, dry_run=True):
     motivi_vuoti = {}
     top_selezionato_visivo = {}  # seeker_id -> True se il 1° elemento della sua lista è lì per RF-11a/b
     for seeker_id in pool:
-        lista, motivo, selezionato_visivo = build_preference_list(seeker_id, pool, cfg, history_pairs, gia_impegnati)
+        lista, motivo, selezionato_visivo = build_preference_list(seeker_id, pool, cfg, coppie_escluse, gia_impegnati)
         if lista:
             preference_lists[seeker_id] = lista
             top_selezionato_visivo[seeker_id] = selezionato_visivo

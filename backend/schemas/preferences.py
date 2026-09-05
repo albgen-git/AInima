@@ -1,12 +1,16 @@
 """RF-08: criteri di ricerca, split esplicito dealbreaker/soft (§7.4)."""
 
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Genere = Literal["Maschile", "Femminile", "Non binario", "Altro"]
 SiNoIndifferente = Literal["Si", "No", "Indifferente"]
 SiNoDaValutare = Literal["Si", "No", "Da valutare"]
+
+# Specchio di stato_civile (v. StepCivilStatus.tsx) — le 4 opzioni selezionabili
+# per "stato civile gradito nel partner" (2026-09-05, multi-selezione).
+STATO_CIVILE_VALORI = ["Celibe/Nubile", "Separato/a", "Divorziato/a", "Vedovo/a"]
 
 
 class DealbreakerCriteriaIn(BaseModel):
@@ -25,10 +29,26 @@ class SoftCriteriaIn(BaseModel):
     """Contribuiscono allo score di compatibilità, non escludono."""
     pref_altezza_min: Optional[int] = None
     pref_altezza_max: Optional[int] = None
-    pref_stato_civile_accettato: Optional[str] = None
+    # Multi-selezione (2026-09-05, richiesta esplicita dell'utente): un
+    # filtro vuoto non ha senso operativo ("non accetto nessuno stato
+    # civile") — se il campo è presente nel payload, deve contenere almeno
+    # un valore canonico. None resta ammesso (campo non ancora compilato).
+    pref_stato_civile_accettato: Optional[List[str]] = None
     pref_titolo_studio: Optional[str] = None
     pref_corporatura: Optional[str] = None
     pref_fumo: Optional[bool] = None
     pref_alcol: Optional[bool] = None
     pref_fede_religiosa: Optional[str] = None
     pref_importanza_religione: Optional[int] = Field(default=None, ge=1, le=5)
+
+    @field_validator("pref_stato_civile_accettato")
+    @classmethod
+    def _valida_stato_civile_accettato(cls, v):
+        if v is None:
+            return v
+        if len(v) == 0:
+            raise ValueError("pref_stato_civile_accettato non può essere una lista vuota")
+        non_validi = [x for x in v if x not in STATO_CIVILE_VALORI]
+        if non_validi:
+            raise ValueError(f"valori non validi in pref_stato_civile_accettato: {non_validi}")
+        return v

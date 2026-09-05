@@ -15,11 +15,25 @@ import {
 } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
+import {
+  StatoCivileAccettatoField,
+  STATO_CIVILE_ACCETTATO_OPTIONS,
+} from "@/components/onboarding/StatoCivileAccettatoField";
 
 const GENERE_VALUES: Genere[] = ["Maschile", "Femminile", "Non binario", "Altro"];
 const ACCETTA_FIGLI_VALUES: SiNoIndifferente[] = ["Si", "No", "Indifferente"];
 const DESIDERA_FIGLI_VALUES: SiNoDaValutare[] = ["Si", "No", "Da valutare"];
 const CORPORATURA_VALUES = ["Snella", "Atletica", "Media", "Robusta", "Curvy"] as const;
+
+// Un valore storico non canonico (testo libero pre-multiselezione, es.
+// "Nubile"/"Single???!") non viene mai proposto come spuntato — verrebbe
+// comunque rifiutato dal backend al salvataggio (validazione sui 4 valori
+// canonici). Si riparte da "Nessuna preferenza" in quel caso, mai da un
+// filtro vuoto.
+function normalizzaStatoCivileAccettato(v: string[] | null | undefined): string[] {
+  const canonici = (v ?? []).filter((x) => (STATO_CIVILE_ACCETTATO_OPTIONS as readonly string[]).includes(x));
+  return canonici.length > 0 ? canonici : [...STATO_CIVILE_ACCETTATO_OPTIONS];
+}
 
 interface FormState {
   pref_genere_cercato: Genere | "";
@@ -31,7 +45,7 @@ interface FormState {
   lingue_parlate: string;
   pref_altezza_min: string;
   pref_altezza_max: string;
-  pref_stato_civile_accettato: string;
+  pref_stato_civile_accettato: string[];
   pref_titolo_studio: string;
   pref_corporatura: string;
   pref_fumo: boolean | null;
@@ -81,7 +95,7 @@ export default function PreferencesEditPage() {
           lingue_parlate: (p?.lingue_parlate ?? []).join(", "),
           pref_altezza_min: prefs.soft?.pref_altezza_min ? String(prefs.soft.pref_altezza_min) : "",
           pref_altezza_max: prefs.soft?.pref_altezza_max ? String(prefs.soft.pref_altezza_max) : "",
-          pref_stato_civile_accettato: prefs.soft?.pref_stato_civile_accettato ?? "",
+          pref_stato_civile_accettato: normalizzaStatoCivileAccettato(prefs.soft?.pref_stato_civile_accettato),
           pref_titolo_studio: prefs.soft?.pref_titolo_studio ?? "",
           pref_corporatura: prefs.soft?.pref_corporatura ?? "",
           pref_fumo: prefs.soft?.pref_fumo ?? null,
@@ -126,7 +140,7 @@ export default function PreferencesEditPage() {
     const softPayload: SoftCriteriaIn = {
       pref_altezza_min: form.pref_altezza_min ? Number(form.pref_altezza_min) : null,
       pref_altezza_max: form.pref_altezza_max ? Number(form.pref_altezza_max) : null,
-      pref_stato_civile_accettato: form.pref_stato_civile_accettato || null,
+      pref_stato_civile_accettato: form.pref_stato_civile_accettato,
       pref_titolo_studio: form.pref_titolo_studio || null,
       pref_corporatura: form.pref_corporatura || null,
       pref_fumo: form.pref_fumo,
@@ -197,7 +211,7 @@ export default function PreferencesEditPage() {
             >
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
-                  {n}
+                  {tCommon(`importanceScale.${n}`)}
                 </option>
               ))}
             </SelectField>
@@ -263,10 +277,9 @@ export default function PreferencesEditPage() {
               />
             </div>
 
-            <TextField
-              label={tPref("statoCivileAccettato")}
+            <StatoCivileAccettatoField
               value={form.pref_stato_civile_accettato}
-              onChange={(e) => update("pref_stato_civile_accettato", e.target.value)}
+              onChange={(v) => update("pref_stato_civile_accettato", v)}
             />
 
             <TextField
@@ -302,7 +315,7 @@ export default function PreferencesEditPage() {
               <option value="">{tPref("noPreference")}</option>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
-                  {n}
+                  {tCommon(`importanceScale.${n}`)}
                 </option>
               ))}
             </SelectField>

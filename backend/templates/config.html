@@ -20,6 +20,14 @@
   input[type=text], select { background: #1a1a1e; border: 1px solid #444; color: #eee; padding: 6px 8px; border-radius: 5px; font-size: 13px; width: 110px; }
   button { background: #4a5cf0; border: none; color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 6px; }
   form.row-form { display: flex; align-items: center; gap: 4px; }
+  section.azioni { background: #232329; border: 1px solid #333; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+  section.azioni h2 { font-size: 14px; margin: 0 0 4px; }
+  section.azioni p.sub { margin: 0 0 12px; }
+  section.azioni .pulsanti { display: flex; gap: 10px; }
+  section.azioni button { background: #3a9d6b; }
+  div.esito-banner { border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
+  div.esito-banner.ok { background: #1e3a2a; border: 1px solid #3a9d6b; color: #cdeedd; }
+  div.esito-banner.no { background: #3a2a1e; border: 1px solid #c98a3a; color: #f0d9bb; }
 </style>
 </head>
 <body>
@@ -31,6 +39,39 @@
   </nav>
   <h1>Console di configurazione</h1>
   <p class="sub">RF-25e — parametri di system_config, modificabili senza toccare il codice. Ogni modifica viene tracciata (operatore, data, valore precedente → nuovo).</p>
+
+  {% set trigger_persona = request.query_params.get("trigger_persona") %}
+  {% if trigger_persona %}
+    {% set trigger_esito = request.query_params.get("trigger_esito") %}
+    {% set trigger_score = request.query_params.get("trigger_score") %}
+    <div class="esito-banner {{ 'ok' if trigger_esito == 'proposta' else 'no' }}">
+      Trigger abbinamento per <strong>{{ trigger_persona }}</strong>:
+      {% if trigger_esito == "proposta" %}
+        proposta creata (final_score={{ trigger_score }}).
+      {% elif trigger_esito == "nessun_candidato" %}
+        nessun candidato ha superato i filtri hard.
+      {% elif trigger_esito == "slow_matching" %}
+        nessun candidato ha superato la soglia minima di punteggio (Slow Matching).
+      {% elif trigger_esito == "revisione_umana" %}
+        profilo segnalato per revisione umana, escluso dal matching automatico.
+      {% else %}
+        {{ trigger_esito }}.
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <section class="azioni">
+    <h2>Trigger manuali di abbinamento</h2>
+    <p class="sub">Genera subito una nuova proposta di abbinamento per uno dei 2 account reali (usa find_best_match sul pool attuale — nessun effetto sugli altri utenti).</p>
+    <div class="pulsanti">
+      <form method="post" action="/config/trigger-abbinamento/alberto">
+        <button type="submit">Genera abbinamento per Alberto</button>
+      </form>
+      <form method="post" action="/config/trigger-abbinamento/danae">
+        <button type="submit">Genera abbinamento per Danae</button>
+      </form>
+    </div>
+  </section>
 
   <table>
     <tr><th>Chiave</th><th>Descrizione</th><th>Valore attuale</th><th>Ultima modifica</th></tr>

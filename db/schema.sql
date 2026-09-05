@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS users (
     stato_civile                VARCHAR(30),
     ha_figli                    BOOLEAN,
     stato_account                stato_account_enum NOT NULL DEFAULT 'In attesa',
+    -- RNF-12/§7.1: true per tutti i profili generati dallo script di seed
+    -- (source_actor_id IS NOT NULL, stesso criterio già usato ovunque nel
+    -- progetto per distinguerli) — qualunque processo che invia email in
+    -- autonomia (es. il cron di engagement RF-32d) deve escludere questi
+    -- profili dall'invio reale, pur potendo eseguire su di loro la logica
+    -- di assegnazione/tracciamento per scopo di test.
+    is_demo                     BOOLEAN NOT NULL DEFAULT FALSE,
     livello_abbonamento         livello_abbonamento_enum NOT NULL DEFAULT 'Free',
     data_scadenza_abbonamento   DATE,
     metodo_pagamento_token      VARCHAR(255),
@@ -151,7 +158,12 @@ CREATE TABLE IF NOT EXISTS soft_criteria (
     user_id                   UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     pref_altezza_min           SMALLINT,
     pref_altezza_max           SMALLINT,
-    pref_stato_civile_accettato VARCHAR(30),
+    -- Multi-selezione (checkbox), non scelta singola — un utente può
+    -- accettare più stati civile contemporaneamente (es. Vedovo/a +
+    -- Divorziato/a). "Nessuna preferenza" in UI equivale a tutti e 4 i
+    -- valori presenti nell'array, mai un array vuoto — v. CLAUDE.md
+    -- 2026-09-05, migrate_2026_09_05_multiselect_stato_civile.py.
+    pref_stato_civile_accettato TEXT[],
     pref_titolo_studio         VARCHAR(50),
     pref_corporatura           VARCHAR(30),
     pref_fumo                  BOOLEAN,
@@ -393,6 +405,10 @@ CREATE TABLE IF NOT EXISTS matches (
     pagamento_b_stato                 VARCHAR(20),
     data_conferma                     TIMESTAMPTZ,
     contatto_scambiato                BOOLEAN NOT NULL DEFAULT FALSE,
+    -- RF-14c/§7.6: evita invii duplicati dell'email di timeout se il
+    -- processo schedulato (v. services/match_timeout.py) gira più volte
+    -- sullo stesso match prima che l'invio sia confermato riuscito.
+    notifica_scadenza_inviata          BOOLEAN NOT NULL DEFAULT FALSE,
     shortlist_candidati                UUID[],
     -- v. RF-11a/RF-11b: true se il vincitore finale non è il primo per
     -- punteggio caratteriale puro nella shortlist, cioè se la somiglianza
@@ -548,7 +564,21 @@ CREATE TABLE IF NOT EXISTS pillole_libreria (
     -- 'evitamento_alto', 'empatia_bassa'; array vuoto = contenuto generico
     -- del pilastro in rotazione, nessun dato specifico richiesto
     tag_personalizzazione     VARCHAR(30)[] NOT NULL DEFAULT '{}',
-    attiva                       BOOLEAN NOT NULL DEFAULT TRUE
+    attiva                       BOOLEAN NOT NULL DEFAULT TRUE,
+    -- "Pillola del giorno" (Ainima_Dashboard_Trigger_Email_v1.md §2.1bis,
+    -- v. CLAUDE.md): assegna_pillola() sceglie sempre la riga più recente
+    -- per data_creazione, non più per tag/personalizzazione.
+    data_creazione                TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Generazione live (Ainima_Prompt_Generazione_Live_Pillole_v3.md,
+    -- v. CLAUDE.md): una delle 6 tecniche editoriali usate, persistita per
+    -- l'anti-ripetizione della generazione successiva. NULL per le
+    -- pillole illustrative seedate a mano prima di questa funzionalità.
+    tecnica_usata                    VARCHAR(50),
+    -- Tema/immagine centrale (1-2 parole, solo uso interno, mai mostrato
+    -- all'utente) — trovate ripetizioni reali (es. "silenzio" in 3
+    -- pillole su 7) che pilastro/tecnica da soli non intercettavano,
+    -- v. CLAUDE.md. NULL per le pillole precedenti a questa correzione.
+    tema_centrale                       VARCHAR(50)
 );
 
 CREATE TABLE IF NOT EXISTS pillole_inviate_log (
@@ -557,6 +587,20 @@ CREATE TABLE IF NOT EXISTS pillole_inviate_log (
     data_invio       TIMESTAMPTZ NOT NULL DEFAULT now(),
     aperta             BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (user_id, pillola_id) -- evita ripetizioni (§3.3 del documento)
+);
+
+-- Generazione live delle pillole (v. CLAUDE.md,
+-- services/pillola_generator.py) — log minimo per il monitoraggio:
+-- quante rigenerazioni sono servite per ogni pillola pubblicata, o il
+-- dettaglio degli scarti quando tutti i tentativi falliscono (nessuna
+-- pubblicazione quel giorno, pillola_id NULL, alert per revisione umana).
+CREATE TABLE IF NOT EXISTS pillole_generazione_log (
+    log_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pillola_id         UUID REFERENCES pillole_libreria(pillola_id),
+    tentativi            INT NOT NULL,
+    esito                  VARCHAR(30) NOT NULL, -- 'pubblicata' | 'fallita_tutti_tentativi'
+    dettaglio_scarti        JSONB,
+    data_esecuzione            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS email_coda_prossimo_invio (
@@ -580,6 +624,45 @@ CREATE TABLE IF NOT EXISTS email_inviata_log (
     -- nel dashboard del provider senza questo id. Nullable: un invio può
     -- comunque riuscire anche se il provider non restituisce un id.
     provider_message_id      VARCHAR(255)
+);
+
+-- ------------------------------------------------------------
+-- §7.14/§7.15, RF-32/32b/32c/32d: motore di scheduling per pillole,
+-- domande di approfondimento e ricalcolo profilo (v. CLAUDE.md).
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS engagement_log (
+    log_id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id                  UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    tipo                       VARCHAR(30) NOT NULL, -- 'Pillola' | 'Domanda approfondimento' | 'Ricalcolo profilo'
+    data_invio_trigger           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- opzionale: quale pillola specifica (pillola_id) o altro riferimento
+    -- al contenuto assegnato/innescato — nessuna FK cross-tabella in
+    -- Postgres, stesso pattern già in uso in email_coda_prossimo_invio.
+    riferimento_contenuto          UUID
+);
+-- Indice composito per la query del cron (RF-32d): per ogni utente e tipo,
+-- serve solo l'ultimo record — senza questo indice, un ORDER BY DESC LIMIT 1
+-- per (user_id, tipo) degraderebbe a scansione della tabella intera quando
+-- il volume di log cresce nel tempo.
+CREATE INDEX IF NOT EXISTS idx_engagement_log_user_tipo_data
+    ON engagement_log (user_id, tipo, data_invio_trigger DESC);
+-- Indice parziale per il cron giornaliero (RF-32d): filtra sempre e solo
+-- su stato_account='Attivo' — un indice parziale (non sull'intera colonna
+-- enum) resta piccolo ed efficiente anche quando la tabella users cresce
+-- a decine di migliaia di righe (RNF-05), invece di una scansione
+-- sequenziale dell'intera tabella ad ogni run.
+CREATE INDEX IF NOT EXISTS idx_users_attivi ON users (user_id) WHERE stato_account = 'Attivo';
+
+CREATE TABLE IF NOT EXISTS domande_approfondimento_risposte (
+    risposta_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id                 UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    -- struttura da definire insieme al flusso completo (v. CLAUDE.md, nota
+    -- §4.11 del documento requisiti) — domanda_testo come placeholder di
+    -- solo testo libero finché non esiste una libreria di domande vera
+    -- (es. domande_affinamento_pool, già usata per un flusso diverso/RF-31c).
+    domanda_testo             TEXT,
+    risposta                    TEXT,
+    data_risposta                 TIMESTAMPTZ
 );
 
 -- ------------------------------------------------------------
@@ -650,8 +733,15 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     -- solo per test mirati) — nessun valore va mai copiato ciecamente da
     -- collaudo a produzione tramite questa riga.
     ('cadenza_giorni_proposta_abbinamento', '30', 'RF-25e/RF-11: ogni quanti giorni gira il ciclo di generazione delle proposte di abbinamento'),
-    ('cadenza_invio_pillole',           '7',   'RF-25e/RF-31c: ogni quanti giorni viene proposta una nuova pillola di contenuto, per non mostrare sempre la stessa'),
-    ('cadenza_domande_supplementari',   '14',  'RF-25e: ogni quanti giorni vengono proposte nuove domande di affinamento supplementari'),
+    -- RF-32d: soglia minima di giorni dall'ultimo invio/trigger per
+    -- quell'utente e quel tipo (engagement_log) — non una cadenza fissa a
+    -- calendario. Nomi/default allineati a Documento_Requisiti_v1.md §7.8
+    -- (le chiavi cadenza_invio_pillole/cadenza_domande_supplementari usate
+    -- in una sessione precedente erano sbagliate, sia nel nome sia nel
+    -- default — corrette qui, mai state lette da alcun codice funzionante).
+    ('cadenza_giorni_pillola',                    '2',  'RF-25e/RF-31c: soglia minima di giorni dall''ultimo invio/trigger di una pillola per l''utente, prima che il cron di engagement gliene assegni una nuova'),
+    ('cadenza_giorni_domanda_approfondimento',    '7',  'RF-25e/RF-32: soglia minima di giorni dall''ultimo invio/trigger di una domanda di approfondimento per l''utente'),
+    ('cadenza_giorni_ricalcolo_profilo',          '60', 'RF-25e/RF-32c: soglia minima di giorni dall''ultimo ricalcolo del profilo personale per l''utente'),
     ('verifica_carta_attiva',           'true', 'RF-25e/RF-04: se disattivato, l''onboarding prosegue senza richiedere la pre-autorizzazione carta — rimuove un filtro anti-abuso, richiede conferma esplicita per disattivare')
 ON CONFLICT (chiave) DO NOTHING;
 

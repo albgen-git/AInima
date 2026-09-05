@@ -222,7 +222,7 @@ export function StepProfile({ state, update, onNext, onBack }: StepProps) {
             <option value="">—</option>
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
-                {n}
+                {tCommon(`importanceScale.${n}`)}
               </option>
             ))}
           </SelectField>

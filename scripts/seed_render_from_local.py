@@ -416,7 +416,15 @@ def main():
         uid = str(u["user_id"])
         if dry_run:
             print(f"\n--- [{i}] {u['nome']} {u['cognome']} ({u['email']}) — user_id={uid} (source_actor_id={u['source_actor_id']}) ---")
-        upsert_riga(cur_render, "users", "user_id", dict(u), dry_run)
+        riga_utente = dict(u)
+        # RNF-12 (v. CLAUDE.md): is_demo=TRUE forzato esplicitamente qui,
+        # non solo ereditato dalla sorgente locale (che oggi ce l'ha già
+        # corretto) — così un futuro rigeneratore del pool demo locale che
+        # dimenticasse di impostarlo non propagherebbe comunque il difetto
+        # su Render, dove il cron di engagement (RF-32d) lo usa per
+        # decidere se inviare email reali.
+        riga_utente["is_demo"] = True
+        upsert_riga(cur_render, "users", "user_id", riga_utente, dry_run)
 
         # ── foto: profilo + partner ideale, solo se il DB locale dice che esistono ──
         # mai leggere alla cieca dal filesystem per user_id senza controllare
