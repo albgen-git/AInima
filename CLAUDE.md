@@ -681,6 +681,12 @@ Aggiunta anche una nota informativa richiesta esplicitamente ("finché non prend
 
 Verificato dal vivo in locale (non solo type-check, pulito): chiamata reale all'endpoint conferma tutti i nuovi campi popolati correttamente; rendering nel browser conferma tutte le nuove righe visibili nella scheda, inclusa la nota di eleggibilità.
 
+## Trigger abbinamento in console admin: da 2 pulsanti fissi a ricerca per nome (2026-09-06)
+
+Richiesto esplicitamente dall'utente: i 2 pulsanti fissi "Genera abbinamento per Alberto/Danae" (v. voce precedente) sostituiti con un form generico — campi Nome/Cognome, pulsante "Richiedi abbinamento", stessa finestra di output di prima. `POST /config/trigger-abbinamento/{persona}` (route con persona fissa nel path) diventa `POST /config/trigger-abbinamento` (nome/cognome come campi form) — cerca l'utente per `nome`/`cognome` case-insensitive esatto (non wildcard parziale, per non colpire per errore un profilo diverso), con 3 esiti distinti mostrati nel banner: nessun utente trovato, più utenti ambigui con lo stesso nome (conteggio mostrato, l'operatore deve specificare meglio — es. il pool demo ha già coppie nome/cognome duplicate), o il trigger vero e proprio (stessa `proponi_match_singolo()` di prima, nessuna logica duplicata). Funziona ora per qualunque utente del sistema, non più solo i 2 account reali.
+
+Verificato dal vivo in locale i 3 esiti: nome inesistente → banner "nessun utente trovato"; "Matteo Ferri" (2 omonimi reali nel pool demo) → banner "trovati 2 utenti... specifica meglio"; "Alberto Genovese" → proposta generata realmente (poi rimossa, era solo per il test — il pool locale non aveva ancora una proposta attiva per lui).
+
 ## Come lavorare su questo progetto
 
 - I documenti in `docs/` sono bozze v1 "a cura dello psicologo del progetto" — contengono razionale clinico/psicologico dietro le scelte algoritmiche (es. perché la penalità di sbilanciamento di maturità emotiva è a soglia e non lineare, perché la combinazione "ansia alta in un partner + evitamento alto nell'altro" pesa più di una semplice media nella formula di compatibilità di attaccamento). Quando si implementa la logica di matching, preservare questo razionale nei commenti/decisioni di design, non solo la formula.

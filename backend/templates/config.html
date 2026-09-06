@@ -43,12 +43,13 @@
   <h1>Console di configurazione</h1>
   <p class="sub">RF-25e — parametri di system_config, modificabili senza toccare il codice. Ogni modifica viene tracciata (operatore, data, valore precedente → nuovo).</p>
 
-  {% set trigger_persona = request.query_params.get("trigger_persona") %}
-  {% if trigger_persona %}
+  {% set trigger_nome = request.query_params.get("trigger_nome") %}
+  {% if trigger_nome is not none %}
+    {% set trigger_cognome = request.query_params.get("trigger_cognome") %}
     {% set trigger_esito = request.query_params.get("trigger_esito") %}
     {% set trigger_score = request.query_params.get("trigger_score") %}
     <div class="esito-banner {{ 'ok' if trigger_esito == 'proposta' else 'no' }}">
-      Trigger abbinamento per <strong>{{ trigger_persona }}</strong>:
+      Trigger abbinamento per <strong>{{ trigger_nome }} {{ trigger_cognome }}</strong>:
       {% if trigger_esito == "proposta" %}
         proposta creata (final_score={{ trigger_score }}).
       {% elif trigger_esito == "nessun_candidato" %}
@@ -57,6 +58,10 @@
         nessun candidato ha superato la soglia minima di punteggio (Slow Matching).
       {% elif trigger_esito == "revisione_umana" %}
         profilo segnalato per revisione umana, escluso dal matching automatico.
+      {% elif trigger_esito == "non_trovato" %}
+        nessun utente trovato con questo nome e cognome.
+      {% elif trigger_esito == "ambiguo" %}
+        trovati {{ trigger_score }} utenti con questo nome e cognome — specifica in modo più preciso.
       {% else %}
         {{ trigger_esito }}.
       {% endif %}
@@ -64,16 +69,19 @@
   {% endif %}
 
   <section class="azioni">
-    <h2>Trigger manuali di abbinamento</h2>
-    <p class="sub">Genera subito una nuova proposta di abbinamento per uno dei 2 account reali (usa find_best_match sul pool attuale — nessun effetto sugli altri utenti).</p>
-    <div class="pulsanti">
-      <form method="post" action="/config/trigger-abbinamento/alberto">
-        <button type="submit">Genera abbinamento per Alberto</button>
-      </form>
-      <form method="post" action="/config/trigger-abbinamento/danae">
-        <button type="submit">Genera abbinamento per Danae</button>
-      </form>
-    </div>
+    <h2>Trigger manuale di abbinamento</h2>
+    <p class="sub">Genera subito una nuova proposta di abbinamento per l'utente indicato (usa find_best_match sul pool attuale — nessun effetto sugli altri utenti).</p>
+    <form method="post" action="/config/trigger-abbinamento" class="pulsanti" style="align-items:flex-end">
+      <div>
+        <label style="display:block; font-size:11px; color:#999; margin-bottom:3px;">Nome</label>
+        <input type="text" name="nome" required>
+      </div>
+      <div>
+        <label style="display:block; font-size:11px; color:#999; margin-bottom:3px;">Cognome</label>
+        <input type="text" name="cognome" required>
+      </div>
+      <button type="submit">Richiedi abbinamento</button>
+    </form>
   </section>
 
   {% for etichetta, righe_gruppo in gruppi %}
