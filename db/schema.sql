@@ -77,7 +77,16 @@ CREATE TABLE IF NOT EXISTS users (
     locale                      VARCHAR(5)  NOT NULL DEFAULT 'it-IT',
     data_creazione               TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- tracciabilità per import dati di test dal DB Actor (non fa parte dello schema di produzione)
-    source_actor_id             INT UNIQUE
+    source_actor_id             INT UNIQUE,
+    -- RF-08c anti-abuso (v. CLAUDE.md): tentativi CONSECUTIVI di upload
+    -- foto (profilo o partner ideale) senza un volto rilevato — resettato
+    -- a 0 al primo upload con volto valido. Alla soglia
+    -- system_config.tentativi_massimi_rilevamento_volto, l'account passa
+    -- automaticamente a 'Sospeso' (v. routers/profile.py) per non
+    -- permettere upload illimitati che consumerebbero le API a pagamento
+    -- di AWS Rekognition. Non conta gli errori del servizio AWS stesso
+    -- (fail-open, non colpa dell'utente) — solo "nessun volto rilevato".
+    tentativi_falliti_rilevamento_volto INT NOT NULL DEFAULT 0
 );
 
 -- ------------------------------------------------------------
@@ -471,6 +480,27 @@ CREATE TABLE IF NOT EXISTS content_moderation_log (
 );
 
 -- ------------------------------------------------------------
+-- RF-08c: log persistente di OGNI tentativo di rilevamento volto
+-- (DetectFaces) — non solo i fallimenti "nessun volto" (che contano ai
+-- fini della sospensione anti-abuso, v. users.tentativi_falliti_
+-- rilevamento_volto) ma anche i disservizi del servizio AWS stesso
+-- (esito 'Errore servizio', fail-open, mai colpa dell'utente). Prima di
+-- questa tabella un fallimento della chiamata AWS finiva solo in un
+-- print() di console, impossibile da verificare a posteriori (v. CLAUDE.md
+-- — caso reale: foto "partner ideale" di un piatto caricata con successo
+-- da un utente, impossibile stabilire se per un errore AWS transitorio o
+-- altro senza questa traccia).
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS rilevamento_volto_log (
+    log_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id            UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    tipo_immagine       VARCHAR(20) NOT NULL, -- 'Foto profilo' | 'Foto partner ideale'
+    esito                VARCHAR(20) NOT NULL, -- 'Volto rilevato' | 'Nessun volto' | 'Errore servizio'
+    dettaglio_errore      TEXT,                 -- solo per 'Errore servizio' (messaggio eccezione AWS)
+    data_evento            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ------------------------------------------------------------
 -- §7.10 Richieste di recupero accesso / cambio email (RF-26/26b/26c/26d)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS email_change_requests (
@@ -722,6 +752,7 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     ('otp_tentativi_massimi',           '5',   'Tentativi di verifica falliti consentiti prima di dover richiedere un nuovo codice OTP'),
     ('otp_richiesta_cooldown_secondi',  '60',  'Secondi minimi tra due richieste di OTP per la stessa email, anti-abuso'),
     ('otp_rate_limit_ip_per_ora',       '10',  'Numero massimo di richieste OTP consentite dallo stesso IP in un''ora, anti-abuso'),
+    ('tentativi_massimi_rilevamento_volto', '3', 'RF-08c: tentativi consecutivi di upload foto senza volto rilevato prima della sospensione automatica dell''account, anti-abuso (evita consumo eccessivo delle API AWS Rekognition)'),
     ('jwt_scadenza_giorni',             '30',  'Giorni di validità del token di sessione emesso alla verifica OTP (v. CLAUDE.md: emesso ma non ancora applicato su altre rotte)'),
     ('cadenza_email_engagement_giorni', '7',   'Blocco E — tetto minimo di giorni tra due email di engagement (domande di affinamento/pillole) per lo stesso utente, anti-invadenza (Ainima_Dashboard_Trigger_Email_v1.md §2.3)'),
     ('giorno_invio_email_engagement',   'Martedì', 'Blocco E — giorno fisso della settimana in cui si svuota la coda email di engagement, per prevedibilità lato utente (Ainima_Dashboard_Trigger_Email_v1.md §2.2)'),

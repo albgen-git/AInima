@@ -90,6 +90,12 @@ EDITABLE_FIELDS = {
         "stato_civile": "text", "ha_figli": "bool",
         "stato_account": "enum", "livello_abbonamento": "enum",
         "mercato": "text", "valuta": "text", "locale": "text",
+        # RF-08c anti-abuso: per riattivare a mano un account sospeso per
+        # troppi tentativi falliti di rilevamento volto, un operatore deve
+        # poter azzerare anche il contatore — resettare solo stato_account
+        # a 'Attivo' senza toccare questo non basterebbe: il primo upload
+        # successivo con un solo "nessun volto" lo risospenderebbe subito.
+        "tentativi_falliti_rilevamento_volto": "int",
     },
     "physical_profile": {
         "altezza_cm": "int", "peso_kg": "float", "corporatura": "text",
@@ -438,8 +444,9 @@ GRUPPI_CONFIG = [
         "cadenza_giorni_ricalcolo_profilo", "cadenza_email_engagement_giorni", "giorno_invio_email_engagement",
         "giorno_esecuzione_ciclo_mensile",
     ]),
-    ("Sicurezza e anti-abuso (OTP)", [
+    ("Sicurezza e anti-abuso", [
         "otp_rate_limit_ip_per_ora", "otp_richiesta_cooldown_secondi", "otp_tentativi_massimi",
+        "tentativi_massimi_rilevamento_volto",
     ]),
     ("Pagamenti e onboarding", [
         "verifica_carta_attiva", "fee_match_confermato_eur",

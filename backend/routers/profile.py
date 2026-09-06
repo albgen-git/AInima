@@ -24,6 +24,12 @@ def _user_exists(cur, user_id):
     return cur.fetchone() is not None
 
 
+def _config_int(cur, chiave: str, default: int) -> int:
+    cur.execute("SELECT valore FROM system_config WHERE chiave = %s", (chiave,))
+    r = cur.fetchone()
+    return int(r["valore"]) if r else default
+
+
 @router.get("/profile")
 def leggi_profilo(user_id: UUID):
     conn = get_conn()
@@ -153,7 +159,20 @@ def _modera_foto(cur, user_id: UUID, tipo_immagine: str, riferimento_immagine: s
     return risultato.esito
 
 
-def _valida_volto(file: UploadFile) -> face_recognition.ValidazioneVolto | None:
+def _log_rilevamento_volto(cur, user_id: UUID, tipo_immagine: str, esito: str, dettaglio_errore: str | None = None):
+    """RF-08c: traccia OGNI tentativo di DetectFaces, non solo i
+    fallimenti — prima di questa tabella un errore del servizio AWS
+    finiva solo in un print() di console, impossibile da verificare a
+    posteriori (v. CLAUDE.md: caso reale, foto "partner ideale" passata
+    nonostante ritraesse un piatto — senza questo log non è possibile
+    stabilire se per un errore AWS transitorio o altro)."""
+    cur.execute("""
+        INSERT INTO rilevamento_volto_log (user_id, tipo_immagine, esito, dettaglio_errore)
+        VALUES (%s, %s, %s, %s)
+    """, (str(user_id), tipo_immagine, esito, dettaglio_errore))
+
+
+def _valida_volto(cur, user_id: UUID, tipo_immagine: str, file: UploadFile) -> face_recognition.ValidazioneVolto | None:
     """RF-08c: DetectFaces sui byte grezzi, PRIMA di salvare — un upload
     senza volto valido non deve mai arrivare a scrivere un file né una
     riga DB. `file.file` va riportato all'inizio dopo la lettura, perché
@@ -163,14 +182,76 @@ def _valida_volto(file: UploadFile) -> face_recognition.ValidazioneVolto | None:
     "nessun volto") si degrada aperto — stesso principio già applicato a
     services/content_moderation.py quando il provider è assente/in errore:
     un disservizio esterno non deve bloccare un utente che carica una foto
-    legittima. Ritorna None in quel caso (nessuna validazione effettuata)."""
+    legittima. Ritorna None in quel caso (nessuna validazione effettuata) —
+    ma l'errore viene comunque loggato (v. _log_rilevamento_volto), a
+    differenza di prima. Un fallimento del servizio NON conta ai fini del
+    contatore anti-abuso (tentativi_falliti_rilevamento_volto): non è
+    colpa dell'utente se AWS ha un disservizio."""
     contenuto = file.file.read()
     file.file.seek(0)
     try:
-        return face_recognition.rileva_volto(contenuto)
+        validazione = face_recognition.rileva_volto(contenuto)
     except Exception as e:
         print(f"[ERRORE] DetectFaces fallita, upload non bloccato: {e}")
+        _log_rilevamento_volto(cur, user_id, tipo_immagine, "Errore servizio", str(e))
         return None
+    _log_rilevamento_volto(cur, user_id, tipo_immagine,
+                            "Volto rilevato" if validazione.volto_rilevato else "Nessun volto")
+    return validazione
+
+
+def _applica_esito_volto(cur, user_id: UUID, validazione: face_recognition.ValidazioneVolto | None) -> tuple[int, str] | None:
+    """RF-08c anti-abuso (v. CLAUDE.md, richiesta esplicita dell'utente:
+    "non vorrei avere attacchi che mi consumano le API di AWS"). Un
+    upload con volto rilevato azzera il contatore (l'utente ce l'ha
+    fatta, nessun rischio residuo); un "nessun volto" lo incrementa e,
+    alla soglia configurata, sospende l'account — TROPPI tentativi falliti
+    consecutivi bastano da soli a giustificare lo stop, a prescindere dal
+    motivo per cui l'utente continua a sbagliare foto. Un errore del
+    servizio AWS (validazione is None) non tocca il contatore in nessuna
+    direzione.
+
+    NON solleva HTTPException direttamente (a differenza di una prima
+    versione) — ritorna (status_code, messaggio) da propagare SOLO dopo
+    che il chiamante ha fatto conn.commit(): l'incremento del contatore e
+    l'eventuale sospensione vanno persistiti comunque, anche quando
+    l'upload viene rifiutato, altrimenti un raise prima del commit
+    perderebbe silenziosamente il tentativo appena tracciato."""
+    if validazione is None:
+        return None
+    if validazione.volto_rilevato:
+        cur.execute("UPDATE users SET tentativi_falliti_rilevamento_volto = 0 WHERE user_id = %s", (str(user_id),))
+        return None
+
+    cur.execute("""
+        UPDATE users SET tentativi_falliti_rilevamento_volto = tentativi_falliti_rilevamento_volto + 1
+        WHERE user_id = %s RETURNING tentativi_falliti_rilevamento_volto
+    """, (str(user_id),))
+    tentativi = cur.fetchone()["tentativi_falliti_rilevamento_volto"]
+    massimo = _config_int(cur, "tentativi_massimi_rilevamento_volto", 3)
+
+    if tentativi >= massimo:
+        cur.execute("UPDATE users SET stato_account = 'Sospeso' WHERE user_id = %s", (str(user_id),))
+        return 403, (
+            f"Troppi tentativi ({tentativi}) senza un volto rilevato — il tuo account è stato sospeso "
+            "per sicurezza. Contatta l'assistenza per riattivarlo."
+        )
+    return 422, (
+        f"Non è stato rilevato alcun volto in questa foto (tentativo {tentativi} di {massimo}). "
+        "Carica una foto in cui il volto sia chiaramente visibile."
+    )
+
+
+def _gia_sospeso(cur, user_id: UUID) -> bool:
+    """Controllo PRIMA di chiamare AWS — se l'account è già sospeso per
+    troppi tentativi falliti (v. _applica_esito_volto), un nuovo upload
+    non deve nemmeno arrivare a invocare Rekognition: è esattamente la
+    chiamata a pagamento che si vuole evitare di ripetere all'infinito.
+    Ritorna solo il booleano (non solleva) per lasciare a ogni endpoint
+    lo stesso schema chiudi-poi-solleva già in uso altrove in questo file."""
+    cur.execute("SELECT stato_account FROM users WHERE user_id = %s", (str(user_id),))
+    riga = cur.fetchone()
+    return bool(riga and riga["stato_account"] == "Sospeso")
 
 
 @router.post("/profile-photo")
@@ -186,10 +267,16 @@ def carica_foto_profilo(user_id: UUID, file: UploadFile = File(...)):
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
-    validazione = _valida_volto(file)
-    if validazione is not None and not validazione.volto_rilevato:
+    if _gia_sospeso(cur, user_id):
         conn.close()
-        raise HTTPException(422, "Non è stato rilevato alcun volto in questa foto. Carica una foto in cui il tuo viso sia chiaramente visibile.")
+        raise HTTPException(403, "Account sospeso per troppi tentativi di caricamento falliti. Contatta l'assistenza per riattivarlo.")
+    validazione = _valida_volto(cur, user_id, "Foto profilo", file)
+    blocco = _applica_esito_volto(cur, user_id, validazione)
+    conn.commit()
+    if blocco is not None:
+        conn.close()
+        codice, messaggio = blocco
+        raise HTTPException(codice, messaggio)
     percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "profilo", file)
     cur.execute("UPDATE physical_profile SET foto_profilo_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
@@ -213,10 +300,16 @@ def carica_foto_partner_ideale(user_id: UUID, file: UploadFile = File(...)):
     if not _user_exists(cur, user_id):
         conn.close()
         raise HTTPException(404, "Utente non trovato")
-    validazione = _valida_volto(file)
-    if validazione is not None and not validazione.volto_rilevato:
+    if _gia_sospeso(cur, user_id):
         conn.close()
-        raise HTTPException(422, "Non è stato rilevato alcun volto in questa foto. Carica una foto in cui il volto sia chiaramente visibile.")
+        raise HTTPException(403, "Account sospeso per troppi tentativi di caricamento falliti. Contatta l'assistenza per riattivarlo.")
+    validazione = _valida_volto(cur, user_id, "Foto partner ideale", file)
+    blocco = _applica_esito_volto(cur, user_id, validazione)
+    conn.commit()
+    if blocco is not None:
+        conn.close()
+        codice, messaggio = blocco
+        raise HTTPException(codice, messaggio)
     percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "partner_ideale", file)
     cur.execute("UPDATE physical_profile SET foto_partner_ideale_url = %s WHERE user_id = %s",
                 (percorso, str(user_id)))
