@@ -24,6 +24,9 @@ function daysRemaining(dataScadenza: string | null): number | null {
 export default function ProposalPage() {
   const t = useTranslations("proposal");
   const tCommon = useTranslations("common");
+  const tOrientation = useTranslations("onboarding.orientation");
+  const tCivilStatus = useTranslations("onboarding.civilStatus");
+  const tPreferences = useTranslations("onboarding.preferences");
   const userId = getUserId();
 
   const [proposal, setProposal] = useState<ProposalOut | null | undefined>(undefined);
@@ -123,6 +126,18 @@ export default function ProposalPage() {
           </div>
         </div>
 
+        <div className="mt-4 flex flex-col gap-1 border-t border-border pt-4 text-sm text-slate">
+          <p>{tOrientation(`orientamentoOptions.${proposal.orientamento_sessuale}`)}</p>
+          {proposal.stato_civile && <p>{tCivilStatus(`statoCivileOptions.${proposal.stato_civile}`)}</p>}
+          {proposal.lingue_parlate && proposal.lingue_parlate.length > 0 && (
+            <p>{t("lingueParlate", { lingue: proposal.lingue_parlate.join(", ") })}</p>
+          )}
+          {proposal.ha_figli != null && <p>{proposal.ha_figli ? t("haFigli") : t("nonHaFigli")}</p>}
+          {proposal.desidera_figli_futuri && (
+            <p>{t("desideraFigliFuturi", { risposta: tPreferences(`desideraFigliFuturiOptions.${proposal.desidera_figli_futuri}`) })}</p>
+          )}
+        </div>
+
         {remaining !== null && isWaitingMe && (
           <Badge tone={remaining > 0 ? "gold" : "terracotta"} className="mt-4">
             {remaining > 0
@@ -134,14 +149,17 @@ export default function ProposalPage() {
         {decisionAction.error && <Alert tone="error" className="mt-4">{decisionAction.error}</Alert>}
 
         {isWaitingMe && (
-          <div className="mt-5 flex gap-3">
-            <Button variant="secondary" onClick={() => handleDecision(false)} disabled={decisionAction.loading}>
-              {t("reject")}
-            </Button>
-            <Button onClick={() => handleDecision(true)} disabled={decisionAction.loading}>
-              {t("accept")}
-            </Button>
-          </div>
+          <>
+            <div className="mt-5 flex gap-3">
+              <Button variant="secondary" onClick={() => handleDecision(false)} disabled={decisionAction.loading}>
+                {t("reject")}
+              </Button>
+              <Button onClick={() => handleDecision(true)} disabled={decisionAction.loading}>
+                {t("accept")}
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-slate">{t("notEligibleUntilDecision")}</p>
+          </>
         )}
         {isWaitingOther && <Alert tone="info" className="mt-5">{t("youAccepted")}</Alert>}
         {isFinal && <Alert tone="info" className="mt-5">{t("rejected")}</Alert>}

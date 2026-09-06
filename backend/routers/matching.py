@@ -96,12 +96,15 @@ def proposta_corrente(user_id: UUID):
 
     cur.execute("""
         SELECT EXTRACT(YEAR FROM age(u.data_nascita))::int AS eta, u.genere,
+               u.orientamento_sessuale, u.stato_civile, u.ha_figli,
                p.corporatura, p.foto_profilo_url,
-               s.coordinate_gps[0] AS lon, s.coordinate_gps[1] AS lat, so.titolo_studio
+               s.coordinate_gps[0] AS lon, s.coordinate_gps[1] AS lat, so.titolo_studio, so.lingue_parlate,
+               d.pref_desidera_figli_futuri
         FROM users u
         JOIN physical_profile p ON p.user_id = u.user_id
         JOIN socio_profile s ON s.user_id = u.user_id
         JOIN socio_profile so ON so.user_id = u.user_id
+        JOIN dealbreaker_criteria d ON d.user_id = u.user_id
         WHERE u.user_id = %s
     """, (str(m["altro_id"]),))
     altro = cur.fetchone()
@@ -121,6 +124,9 @@ def proposta_corrente(user_id: UUID):
         foto_profilo_url=altro["foto_profilo_url"], distanza_km=distanza,
         data_scadenza_risposta=m["data_scadenza_risposta"],
         in_attesa_di_te=in_attesa_di_te,
+        orientamento_sessuale=altro["orientamento_sessuale"], stato_civile=altro["stato_civile"],
+        lingue_parlate=altro["lingue_parlate"], ha_figli=altro["ha_figli"],
+        desidera_figli_futuri=altro["pref_desidera_figli_futuri"],
     )
 
 

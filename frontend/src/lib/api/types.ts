@@ -382,6 +382,11 @@ export interface ProposalOut {
   data_scadenza_risposta: string | null;
   /** true se questo utente deve ancora rispondere — v. nota in backend/schemas/matching.py. */
   in_attesa_di_te: boolean;
+  orientamento_sessuale: string;
+  stato_civile: string | null;
+  lingue_parlate: string[] | null;
+  ha_figli: boolean | null;
+  desidera_figli_futuri: string | null;
 }
 
 export interface MatchDecision {

@@ -21,6 +21,15 @@ class ProposalOut(BaseModel):
     foto_profilo_url: Optional[str]
     distanza_km: Optional[float]
     data_scadenza_risposta: Optional[datetime]
+    # RF-12 (richiesta esplicita dell'utente, v. CLAUDE.md): i criteri
+    # "non negoziabili" del candidato — non identificano la persona più di
+    # quanto già facciano età/genere/distanza già mostrati, aiutano a
+    # capire perché è stato proposto questo abbinamento.
+    orientamento_sessuale: str
+    stato_civile: Optional[str]
+    lingue_parlate: Optional[list[str]]
+    ha_figli: Optional[bool]
+    desidera_figli_futuri: Optional[str]
     in_attesa_di_te: bool
     """True se questo utente deve ancora rispondere (stato='Proposto', oppure
     stato='Accettato_<lato altrui>'). Necessario perché 'Accettato_A'/
