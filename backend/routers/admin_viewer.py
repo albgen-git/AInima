@@ -393,6 +393,22 @@ CONFIG_CHIAVI_BOOL = {"verifica_carta_attiva"}
 # quindi elenco dedicato invece di applicarlo a tutto CONFIG_CHIAVI_BOOL.
 CONFIG_CHIAVI_RICHIEDONO_CONFERMA = {"verifica_carta_attiva"}
 
+# RF-25i: vincolo incrociato tra le due chiavi — la finestra di risposta a
+# una proposta non può superare la cadenza con cui ne vengono generate di
+# nuove, altrimenti un utente potrebbe ricevere una seconda proposta
+# mentre la precedente è ancora aperta. Stesso testo esatto usato per la
+# label informativa in config.html e per l'errore di validazione, così
+# che il messaggio di blocco "richiami" letteralmente la spiegazione già
+# vista (istruzione esplicita dell'utente — mai un generico "valore non
+# valido").
+CHIAVE_FINESTRA_RISPOSTA = "finestra_giorni_risposta_match"
+CHIAVE_CADENZA_ABBINAMENTO = "cadenza_giorni_proposta_abbinamento"
+MESSAGGIO_VINCOLO_FINESTRA_CADENZA = (
+    "La finestra di risposta deve sempre essere minore o uguale alla cadenza di "
+    "generazione delle proposte, altrimenti un utente potrebbe ricevere una nuova "
+    "proposta mentre una precedente è ancora in attesa di risposta."
+)
+
 
 # Classificazione in paragrafi leggibili (richiesta esplicita dell'utente,
 # v. CLAUDE.md: un elenco piatto di ~30 righe era difficile da scorrere).
@@ -410,10 +426,15 @@ GRUPPI_CONFIG = [
         "dimensione_shortlist_analisi_visiva", "report_top_candidates", "mesi_esclusione_rimatch",
     ]),
     ("Timeout e scadenze", [
-        "finestra_risposta_match_giorni", "recupero_accesso_grazia_ore", "otp_scadenza_minuti", "jwt_scadenza_giorni",
+        "recupero_accesso_grazia_ore", "otp_scadenza_minuti", "jwt_scadenza_giorni",
     ]),
     ("Cadenze periodiche (cron/engagement)", [
-        "cadenza_giorni_proposta_abbinamento", "cadenza_giorni_pillola", "cadenza_giorni_domanda_approfondimento",
+        # cadenza_giorni_proposta_abbinamento e finestra_giorni_risposta_match
+        # restano ADIACENTI di proposito (RF-25i, v. CLAUDE.md): un vincolo
+        # incrociato le lega (finestra <= cadenza), la nota esplicativa in
+        # config.html si aggancia a questa coppia di righe.
+        "cadenza_giorni_proposta_abbinamento", "finestra_giorni_risposta_match",
+        "cadenza_giorni_pillola", "cadenza_giorni_domanda_approfondimento",
         "cadenza_giorni_ricalcolo_profilo", "cadenza_email_engagement_giorni", "giorno_invio_email_engagement",
         "giorno_esecuzione_ciclo_mensile",
     ]),
@@ -517,6 +538,28 @@ def aggiorna_configurazione(
             and conferma_disattivazione != "si"):
         conn.close()
         raise HTTPException(400, f"Disattivare '{chiave}' richiede la conferma esplicita — riprova spuntando la casella di conferma")
+
+    # RF-25i: garanzia finale lato server, indipendente dalla validazione
+    # JS in config.html (che può essere bypassata disattivando JS, o mai
+    # nemmeno raggiunta se qualcuno chiama questo endpoint direttamente).
+    if chiave in (CHIAVE_FINESTRA_RISPOSTA, CHIAVE_CADENZA_ABBINAMENTO):
+        try:
+            nuovo_numero = float(valore)
+        except ValueError:
+            conn.close()
+            raise HTTPException(400, f"Valore non numerico per '{chiave}'")
+
+        altra_chiave = CHIAVE_CADENZA_ABBINAMENTO if chiave == CHIAVE_FINESTRA_RISPOSTA else CHIAVE_FINESTRA_RISPOSTA
+        cur.execute("SELECT valore FROM system_config WHERE chiave = %s", (altra_chiave,))
+        riga_altra = cur.fetchone()
+        altro_numero = float(riga_altra["valore"]) if riga_altra else None
+
+        if altro_numero is not None:
+            finestra = nuovo_numero if chiave == CHIAVE_FINESTRA_RISPOSTA else altro_numero
+            cadenza = nuovo_numero if chiave == CHIAVE_CADENZA_ABBINAMENTO else altro_numero
+            if finestra > cadenza:
+                conn.close()
+                raise HTTPException(400, MESSAGGIO_VINCOLO_FINESTRA_CADENZA)
 
     cur.execute("""
         UPDATE system_config SET valore = %s, data_ultima_modifica = now()

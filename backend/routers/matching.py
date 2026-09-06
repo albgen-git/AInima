@@ -374,7 +374,7 @@ def proponi_match_singolo(user_id: UUID):
         return {"esito": esito["esito"]}
 
     cand_id = esito["candidato_id"]
-    scadenza = datetime.now(timezone.utc) + timedelta(days=int(cfg.get("finestra_risposta_match_giorni", 7)))
+    scadenza = datetime.now(timezone.utc) + timedelta(days=int(cfg.get("finestra_giorni_risposta_match", 7)))
     cur.execute("""
         INSERT INTO matches (user_a_id, user_b_id, stato, final_score,
                              data_scadenza_risposta, algoritmo_versione, algoritmo_parametri,

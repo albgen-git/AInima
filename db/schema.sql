@@ -708,7 +708,12 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     ('soglia_minima_proposta',         '0.55', 'Sotto questa soglia nessuna proposta viene generata quel mese (Slow Matching)'),
     ('fee_match_confermato_eur',       '15',   'Fee addebitata a ciascun utente alla conferma reciproca del match (v. decisione in CLAUDE.md)'),
     ('recupero_accesso_grazia_ore',    '48',   'Ore del periodo di grazia dopo l''approvazione di un cambio email, entro cui la vecchia email può annullare (RF-26d)'),
-    ('finestra_risposta_match_giorni', '7',    'Giorni entro cui entrambe le parti devono accettare la proposta'),
+    -- Rinominato da finestra_risposta_match_giorni per allinearsi alla
+    -- convenzione di naming di Documento_Requisiti_v1.md §7.8/RF-14/RF-25i
+    -- (finestra_giorni_X, come cadenza_giorni_X) — v. CLAUDE.md 2026-09-05.
+    -- Vincolo RF-25i: deve restare <= cadenza_giorni_proposta_abbinamento,
+    -- validato in aggiorna_configurazione (admin_viewer.py), mai solo qui.
+    ('finestra_giorni_risposta_match', '7',    'RF-14/RF-25i: giorni entro cui entrambe le parti devono accettare la proposta prima che scada — deve restare <= cadenza_giorni_proposta_abbinamento'),
     ('mesi_esclusione_rimatch',        '6',    'Una coppia già proposta negli ultimi N mesi non viene riproposta — non è una esclusione permanente (v. decisione in CLAUDE.md sullo stable matching)'),
     ('giorno_esecuzione_ciclo_mensile', '1',   'Giorno del mese in cui gira il ciclo di matching mensile (RF-11) — usato per mostrare agli utenti la prossima data prevista di proposta'),
     ('soglia_area_urbana_km',           '50',  'Sotto questa soglia la distanza resta un filtro/punteggio graduato "classico"; oltre, entra la logica basata su importanza_vicinanza_geografica + lingue_parlate (Algoritmo_Ranking_Finale §3bis)'),

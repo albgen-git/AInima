@@ -1005,7 +1005,7 @@ def run_monthly_batch(conn, dry_run=True):
             risultati.append(esito)
 
             if not dry_run:
-                scadenza = datetime.now() + timedelta(days=int(cfg.get("finestra_risposta_match_giorni", 7)))
+                scadenza = datetime.now() + timedelta(days=int(cfg.get("finestra_giorni_risposta_match", 7)))
                 shortlist = [c["id"] if isinstance(c, dict) else c for c in
                              preference_lists[uid][:int(cfg.get("dimensione_shortlist_analisi_visiva", 5))]]
                 cur.execute("""

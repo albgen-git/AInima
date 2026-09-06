@@ -30,6 +30,7 @@
   div.esito-banner { border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
   div.esito-banner.ok { background: #1e3a2a; border: 1px solid #3a9d6b; color: #cdeedd; }
   div.esito-banner.no { background: #3a2a1e; border: 1px solid #c98a3a; color: #f0d9bb; }
+  tr.nota-vincolo td { background: #232329; color: #d7c48a; font-size: 12px; padding: 10px; border-bottom: 1px solid #333; }
 </style>
 </head>
 <body>
@@ -86,14 +87,14 @@
         <td class="descrizione">{{ r.descrizione or "" }}</td>
         <td>
           <form class="row-form" method="post" action="/config/{{ r.chiave }}/update"
-                onsubmit="return confermaSeNecessario(this, '{{ r.chiave }}', '{{ r.valore }}')">
+                onsubmit="return validaSubmit(this, '{{ r.chiave }}', '{{ r.valore }}')">
             {% if r.chiave in chiavi_bool %}
-            <select name="valore">
+            <select name="valore" id="valore-{{ r.chiave }}">
               <option value="true" {% if r.valore == "true" %}selected{% endif %}>Sì</option>
               <option value="false" {% if r.valore == "false" %}selected{% endif %}>No</option>
             </select>
             {% else %}
-            <input type="text" name="valore" value="{{ r.valore }}">
+            <input type="text" name="valore" id="valore-{{ r.chiave }}" value="{{ r.valore }}">
             {% endif %}
             <input type="hidden" name="conferma_disattivazione" value="">
             <button type="submit">Salva</button>
@@ -101,6 +102,15 @@
         </td>
         <td class="modifica">{{ r.data_ultima_modifica }}</td>
       </tr>
+      {% if r.chiave == "finestra_giorni_risposta_match" %}
+      <tr class="nota-vincolo">
+        <td colspan="4">
+          ⚠️ RF-25i: la finestra di risposta deve sempre essere minore o uguale alla cadenza di
+          generazione delle proposte, altrimenti un utente potrebbe ricevere una nuova proposta
+          mentre una precedente è ancora in attesa di risposta.
+        </td>
+      </tr>
+      {% endif %}
       {% endfor %}
     </table>
   </section>
@@ -125,6 +135,50 @@
         form.querySelector("input[name=conferma_disattivazione]").value = "si";
       }
       return true;
+    }
+
+    // RF-25i: la finestra di risposta non può superare la cadenza di
+    // generazione delle proposte — validazione immediata lato client,
+    // prima ancora di inviare il form (il backend la rifà comunque come
+    // garanzia finale, v. routers/admin_viewer.py::aggiorna_configurazione
+    // — questo controllo qui è solo UX, bypassabile disattivando JS).
+    var MESSAGGIO_VINCOLO_FINESTRA_CADENZA =
+      "La finestra di risposta deve sempre essere minore o uguale alla cadenza di " +
+      "generazione delle proposte, altrimenti un utente potrebbe ricevere una nuova " +
+      "proposta mentre una precedente è ancora in attesa di risposta.";
+
+    function valoreNumericoDi(chiave) {
+      var el = document.getElementById("valore-" + chiave);
+      if (!el) return null;
+      var n = parseFloat(el.value);
+      return isNaN(n) ? null : n;
+    }
+
+    function validaVincoloFinestraCadenza(chiave, valoreInserito) {
+      if (chiave !== "finestra_giorni_risposta_match" && chiave !== "cadenza_giorni_proposta_abbinamento") {
+        return true;
+      }
+      var nuovoNumero = parseFloat(valoreInserito);
+      if (isNaN(nuovoNumero)) return true; // valore non numerico: il backend lo rifiuterà comunque
+
+      var altraChiave = chiave === "finestra_giorni_risposta_match"
+        ? "cadenza_giorni_proposta_abbinamento" : "finestra_giorni_risposta_match";
+      var altroNumero = valoreNumericoDi(altraChiave);
+      if (altroNumero === null) return true; // l'altro campo non è in questa pagina/non leggibile
+
+      var finestra = chiave === "finestra_giorni_risposta_match" ? nuovoNumero : altroNumero;
+      var cadenza = chiave === "cadenza_giorni_proposta_abbinamento" ? nuovoNumero : altroNumero;
+      if (finestra > cadenza) {
+        alert(MESSAGGIO_VINCOLO_FINESTRA_CADENZA);
+        return false;
+      }
+      return true;
+    }
+
+    function validaSubmit(form, chiave, valoreAttuale) {
+      var valoreInserito = form.querySelector("[name=valore]").value;
+      if (!validaVincoloFinestraCadenza(chiave, valoreInserito)) return false;
+      return confermaSeNecessario(form, chiave, valoreAttuale);
     }
   </script>
 </body>
