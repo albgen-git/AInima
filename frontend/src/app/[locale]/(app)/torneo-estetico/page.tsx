@@ -44,6 +44,7 @@ export default function TorneoEsteticoPage() {
   const [fase, setFase] = useState<Fase>("caricamento");
   const [preferenzaEsistente, setPreferenzaEsistente] = useState<{
     dataCompletamento: string;
+    fotoVincitrice: string;
     fotoUrls: string[];
   } | null>(null);
 
@@ -52,6 +53,7 @@ export default function TorneoEsteticoPage() {
   const [rondaCorrente, setRondaCorrente] = useState<Vincitore[]>([]);
   const [coppiaIndice, setCoppiaIndice] = useState(0);
   const [vincitoriRonda, setVincitoriRonda] = useState<Vincitore[]>([]);
+  const [fotoVincitriceRisultato, setFotoVincitriceRisultato] = useState<string>("");
   const [fotoRisultato, setFotoRisultato] = useState<string[]>([]);
 
   const statoAction = useAsyncAction(torneoEsteticoApi.getPreferenza);
@@ -62,9 +64,10 @@ export default function TorneoEsteticoPage() {
     if (!userId) return;
     statoAction.run(userId).then((res) => {
       if (!res) return;
-      if (res.completato && res.foto_preferenza_urls) {
+      if (res.completato && res.foto_vincitore_url && res.foto_preferenza_urls) {
         setPreferenzaEsistente({
           dataCompletamento: res.data_completamento ?? "",
+          fotoVincitrice: res.foto_vincitore_url,
           fotoUrls: res.foto_preferenza_urls,
         });
         setFase("riepilogo");
@@ -103,7 +106,8 @@ export default function TorneoEsteticoPage() {
     });
     if (!res) return;
 
-    if (res.completato && res.foto_preferenza_urls) {
+    if (res.completato && res.foto_vincitore_url && res.foto_preferenza_urls) {
+      setFotoVincitriceRisultato(res.foto_vincitore_url);
       setFotoRisultato(res.foto_preferenza_urls);
       setFase("risultato");
       return;
@@ -145,17 +149,11 @@ export default function TorneoEsteticoPage() {
         <p className="mt-2 text-sm text-slate">{t("riepilogoSubtitle")}</p>
         <Card className="mt-6">
           <Badge tone="sage">{t("completatoBadge")}</Badge>
-          <div className="mt-4 grid grid-cols-5 gap-2">
-            {preferenzaEsistente.fotoUrls.map((url) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={url}
-                src={photoUrl(url)}
-                alt=""
-                className="aspect-square w-full rounded-sm object-cover"
-              />
-            ))}
-          </div>
+          <RisultatoFoto
+            t={t}
+            fotoVincitrice={preferenzaEsistente.fotoVincitrice}
+            fotoSimili={preferenzaEsistente.fotoUrls}
+          />
           <Button className="mt-6" variant="secondary" onClick={() => setFase("intro")}>
             {t("rifaiCta")}
           </Button>
@@ -229,13 +227,46 @@ export default function TorneoEsteticoPage() {
       <Card className="mt-6">
         <Badge tone="sage">{t("completatoBadge")}</Badge>
         <p className="mt-3 text-sm text-slate">{t("risultatoBody")}</p>
-        <div className="mt-4 grid grid-cols-5 gap-2">
-          {fotoRisultato.map((url) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={url} src={photoUrl(url)} alt="" className="aspect-square w-full rounded-sm object-cover" />
-          ))}
-        </div>
+        <RisultatoFoto t={t} fotoVincitrice={fotoVincitriceRisultato} fotoSimili={fotoRisultato} />
       </Card>
     </PageShell>
+  );
+}
+
+/** Esito del torneo (schermata "appena finito" e riepilogo al reload):
+ * la foto vincitrice — quella scelta davvero dall'utente attraverso i 7
+ * confronti — resta in evidenza, grande, con le 10 foto derivate
+ * automaticamente per similarità mostrate sotto come corredo secondario
+ * (mai l'elemento principale della schermata, altrimenti il tab mostra
+ * solo un mosaico anonimo senza "la scelta" dell'utente — v. CLAUDE.md). */
+function RisultatoFoto({
+  t,
+  fotoVincitrice,
+  fotoSimili,
+}: {
+  t: ReturnType<typeof useTranslations<"torneoEstetico">>;
+  fotoVincitrice: string;
+  fotoSimili: string[];
+}) {
+  return (
+    <>
+      <div className="mt-4 flex flex-col items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photoUrl(fotoVincitrice)}
+          alt=""
+          className="aspect-[3/4] w-40 rounded-md object-cover shadow-card"
+        />
+        <p className="text-xs font-medium uppercase tracking-wide text-slate">{t("fotoVincitriceLabel")}</p>
+      </div>
+
+      <p className="mt-6 text-xs text-slate">{t("fotoSimiliLabel")}</p>
+      <div className="mt-2 grid grid-cols-5 gap-2">
+        {fotoSimili.map((url) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={url} src={photoUrl(url)} alt="" className="aspect-square w-full rounded-sm object-cover" />
+        ))}
+      </div>
+    </>
   );
 }

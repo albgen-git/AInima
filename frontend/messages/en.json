@@ -467,6 +467,8 @@
     "riepilogoSubtitle": "You've already completed this style choice.",
     "completatoBadge": "Preference saved",
     "rifaiCta": "Redo the choice",
-    "risultatoBody": "Done — we've saved your style preference. We'll only use it as a secondary tie-break between proposals that are already very close on compatibility."
+    "risultatoBody": "Done — we've saved your style preference. We'll only use it as a secondary tie-break between proposals that are already very close on compatibility.",
+    "fotoVincitriceLabel": "Your choice",
+    "fotoSimiliLabel": "Based on your choice, we'll also use these similar photos for the tie-break"
   }
 }

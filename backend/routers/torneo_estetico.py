@@ -32,10 +32,12 @@ def leggi_preferenza(user_id: UUID):
     l'utente a rifare il torneo per scoprirlo."""
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT data_completamento, foto_preferenza_urls FROM preferenza_estetica_utente WHERE user_id = %s",
-        (str(user_id),),
-    )
+    cur.execute("""
+        SELECT pe.data_completamento, pe.foto_preferenza_urls, c.foto_url AS foto_vincitore_url
+        FROM preferenza_estetica_utente pe
+        JOIN torneo_estetico_cluster c ON c.cluster_id = pe.cluster_id_vincitore
+        WHERE pe.user_id = %s
+    """, (str(user_id),))
     riga = cur.fetchone()
     conn.close()
     if not riga:
@@ -43,6 +45,7 @@ def leggi_preferenza(user_id: UUID):
     return PreferenzaEsteticaOut(
         completato=True,
         data_completamento=riga["data_completamento"],
+        foto_vincitore_url=riga["foto_vincitore_url"],
         foto_preferenza_urls=riga["foto_preferenza_urls"],
     )
 
@@ -129,7 +132,7 @@ def _espandi_preferenza(cur, conn, user_id: UUID, cluster_vincitore_id: UUID):
             data_completamento = now()
     """, (str(user_id), str(cluster_vincitore_id), top10))
     conn.commit()
-    return top10
+    return vincitore["foto_url"], top10
 
 
 @router.post("/confronto", response_model=ConfrontoOut)
@@ -153,10 +156,11 @@ def registra_confronto(user_id: UUID, payload: ConfrontoIn):
         conn.close()
         return ConfrontoOut(completato=False)
 
-    top10 = _espandi_preferenza(cur, conn, user_id, payload.cluster_id_vincitore)
+    foto_vincitore_url, top10 = _espandi_preferenza(cur, conn, user_id, payload.cluster_id_vincitore)
     conn.close()
     return ConfrontoOut(
         completato=True,
         cluster_id_vincitore_torneo=payload.cluster_id_vincitore,
+        foto_vincitore_url=foto_vincitore_url,
         foto_preferenza_urls=top10,
     )

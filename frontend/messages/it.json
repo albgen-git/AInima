@@ -467,6 +467,8 @@
     "riepilogoSubtitle": "Hai già completato questa scelta di stile.",
     "completatoBadge": "Preferenza salvata",
     "rifaiCta": "Rifai la scelta",
-    "risultatoBody": "Fatto — abbiamo salvato la tua preferenza di stile. La useremo solo come spareggio secondario tra proposte già molto vicine per compatibilità."
+    "risultatoBody": "Fatto — abbiamo salvato la tua preferenza di stile. La useremo solo come spareggio secondario tra proposte già molto vicine per compatibilità.",
+    "fotoVincitriceLabel": "La tua scelta",
+    "fotoSimiliLabel": "In base alla tua scelta, useremo anche queste foto simili per lo spareggio"
   }
 }

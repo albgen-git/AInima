@@ -32,6 +32,13 @@ class ConfrontoIn(BaseModel):
 class ConfrontoOut(BaseModel):
     completato: bool
     cluster_id_vincitore_torneo: UUID | None = None
+    # La foto rappresentante del cluster vincitore (quella scelta davvero
+    # dall'utente attraverso i 7 confronti) — distinta dalle 10 foto_
+    # preferenza_urls sotto, che sono derivate automaticamente per
+    # similarità e mai scelte direttamente dall'utente. Mostrata in
+    # evidenza nel riepilogo (v. CLAUDE.md), altrimenti la schermata di
+    # esito mostrava solo le 10 foto derivate, senza "la scelta" stessa.
+    foto_vincitore_url: str | None = None
     foto_preferenza_urls: list[str] | None = None
 
 
@@ -42,4 +49,5 @@ class PreferenzaEsteticaOut(BaseModel):
 
     completato: bool
     data_completamento: datetime | None = None
+    foto_vincitore_url: str | None = None
     foto_preferenza_urls: list[str] | None = None

@@ -478,11 +478,13 @@ export interface ConfrontoIn {
 export interface ConfrontoOut {
   completato: boolean;
   cluster_id_vincitore_torneo: string | null;
+  foto_vincitore_url: string | null;
   foto_preferenza_urls: string[] | null;
 }
 
 export interface PreferenzaEsteticaOut {
   completato: boolean;
   data_completamento: string | null;
+  foto_vincitore_url: string | null;
   foto_preferenza_urls: string[] | null;
 }
