@@ -85,7 +85,7 @@ def perche_questo_match(match_id: UUID):
     cur.execute("""
         SELECT m.match_id, m.user_a_id, m.user_b_id, m.stato, m.final_score,
                m.data_proposta, m.algoritmo_versione, m.algoritmo_parametri,
-               m.selezionato_per_somiglianza_visiva, m.shortlist_candidati,
+               m.selezionato_per_torneo_estetico, m.shortlist_candidati,
                m.flag_rifiuto_esplicito, m.flag_asimmetria_narrativa,
                v.descrizione AS algoritmo_descrizione, v.data_introduzione AS algoritmo_data_introduzione
         FROM matches m

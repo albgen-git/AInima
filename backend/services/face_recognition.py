@@ -97,15 +97,15 @@ def _leggi_bytes_foto(riferimento: str) -> bytes | None:
 
 def confronta_foto(riferimento_sorgente: str, riferimento_target: str) -> float | None:
     """RF-11b: CompareFaces tra due foto già salvate, identificate dal
-    riferimento di storage (stesso valore in foto_profilo_url/
-    foto_partner_ideale_url), non da byte già in memoria — la lettura
+    riferimento di storage (stesso valore in foto_profilo_url), non da
+    byte già in memoria — la lettura
     dal backend di storage (locale o R2) avviene qui dentro. Ritorna la
     similarity 0-100 del miglior match, o None per QUALUNQUE fallimento
     (foto illeggibile, nessun volto rilevabile in una delle due, errore
     di rete/servizio AWS, timeout) — mai un'eccezione: chi chiama questa
-    funzione (matching_engine.seleziona_per_somiglianza_visiva) deve
-    poter trattare un singolo confronto fallito come "candidato escluso
-    dal confronto visivo", senza logica di try/except propria, per
+    funzione (matching_engine.applica_spareggio_estetico) deve poter
+    trattare un singolo confronto fallito come "candidato escluso dal
+    confronto visivo", senza logica di try/except propria, per
     costruzione e non per disciplina (v. commento in cima al file)."""
     bytes_sorgente = _leggi_bytes_foto(riferimento_sorgente)
     bytes_target = _leggi_bytes_foto(riferimento_target)

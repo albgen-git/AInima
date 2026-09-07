@@ -31,7 +31,8 @@
     "proposal": "Proposta",
     "rubrica": "Rubrica",
     "profile": "Profilo",
-    "preferences": "Criteri"
+    "preferences": "Criteri",
+    "torneoEstetico": "Stile"
   },
   "userMenu": {
     "openMenu": "Apri il menu utente",
@@ -193,11 +194,9 @@
     },
     "photos": {
       "title": "Le tue foto",
-      "subtitle": "La foto profilo è necessaria per attivare l'account. La foto del partner ideale è facoltativa.",
+      "subtitle": "La foto profilo è necessaria per attivare l'account.",
       "profileLabel": "Foto profilo",
       "profileHint": "Visibile all'altra parte solo dopo un abbinamento confermato.",
-      "idealLabel": "Foto del \"partner ideale\" (facoltativa)",
-      "idealHint": "Un riferimento estetico puramente visivo — non un profilo reale. Viene usato solo come criterio secondario di spareggio tra due candidati già molto compatibili sul piano caratteriale, mai come criterio primario di abbinamento. Se non hai un'immagine adatta, puoi caricare la foto di un personaggio pubblico che rispecchi l'estetica che hai in mente.",
       "faceGuidance": "Per un confronto affidabile: foto in primo piano (non a figura intera), viso frontale e non di profilo, a fuoco e ben illuminato, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
       "multipleFacesWarning": "Abbiamo rilevato più di una persona in questa foto. Per una verifica più semplice, preferisci una foto in cui compari solo tu.",
       "moderationNote": "Ogni foto caricata passa da una verifica prima di essere resa visibile ad altri utenti.",
@@ -392,10 +391,7 @@
       "title": "Le tue foto",
       "subtitle": "Sostituiscile in qualsiasi momento — le nuove foto passano di nuovo dalla verifica automatica.",
       "profileLabel": "Foto profilo",
-      "idealLabel": "Partner ideale",
-      "idealHint": "Un riferimento puramente estetico, non un profilo reale — puoi caricare anche la foto di un personaggio pubblico che rispecchi l'estetica che hai in mente.",
       "noPhoto": "Nessuna foto",
-      "noIdealPhoto": "Non caricata — facoltativa",
       "faceGuidance": "Per un confronto affidabile: foto in primo piano (non a figura intera), viso frontale e non di profilo, a fuoco e ben illuminato, una sola persona nell'inquadratura, senza occhiali da sole o cappelli che coprano il viso.",
       "multipleFacesWarning": "Abbiamo rilevato più di una persona in questa foto. Per una verifica più semplice, preferisci una foto in cui compari solo tu.",
       "upload": "Carica foto",
@@ -460,5 +456,17 @@
     "subtitle": "Rivedili in qualsiasi momento — se da un po' non ricevi proposte, allentarli può aiutare.",
     "saved": "Modifiche salvate",
     "save": "Salva modifiche"
+  },
+  "torneoEstetico": {
+    "title": "Il tuo stile",
+    "intro": "Alcune proposte future potrebbero avere una compatibilità caratteriale molto simile tra loro — in quei casi (rari), useremo anche una tua preferenza di stile visivo generale per scegliere. Non è un requisito, non esclude mai nessuno da solo: conta solo per decidere tra proposte già equivalenti su tutto il resto.",
+    "introDettaglio": "Ti mostreremo 8 foto a coppie, una coppia alla volta: scegli semplicemente quella che apprezzi di più a colpo d'occhio. In 7 scelte rapide abbiamo finito.",
+    "iniziaCta": "Inizia (7 scelte, ~1 minuto)",
+    "progress": "Confronto {current} di {total}",
+    "scegliCta": "Scegli questa",
+    "riepilogoSubtitle": "Hai già completato questa scelta di stile.",
+    "completatoBadge": "Preferenza salvata",
+    "rifaiCta": "Rifai la scelta",
+    "risultatoBody": "Fatto — abbiamo salvato la tua preferenza di stile. La useremo solo come spareggio secondario tra proposte già molto vicine per compatibilità."
   }
 }

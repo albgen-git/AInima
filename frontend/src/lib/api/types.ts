@@ -158,7 +158,6 @@ export interface ProfileOut {
   alcol: boolean | null;
   stile_vita_sport: string | null;
   foto_profilo_url: string | null;
-  foto_partner_ideale_url: string | null;
   comune_residenza: string | null;
   titolo_studio: string | null;
   settore_occupazionale: string | null;
@@ -212,12 +211,6 @@ export interface ProfilePhotoResponse {
   foto_profilo_url: string;
   /** RF-08c: più di un volto rilevato (AWS Rekognition DetectFaces) — non
    * blocca l'upload, ma segnala che la foto potrebbe ritrarre più persone. */
-  volti_multipli_rilevati: boolean;
-  esito_moderazione: EsitoModerazione;
-}
-
-export interface IdealPartnerPhotoResponse {
-  foto_partner_ideale_url: string;
   volti_multipli_rilevati: boolean;
   esito_moderazione: EsitoModerazione;
 }
@@ -453,4 +446,43 @@ export interface FeedbackIn {
 
 export interface FeedbackResponse {
   registrato: boolean;
+}
+
+// ── torneo_estetico.py ─────────────────────────────────────────────────
+// Spareggio secondario per preferenza estetica (v. CLAUDE.md 2026-09-06/07)
+// — 8 partecipanti, 7 confronti a bracket, mai visto dall'utente come
+// "quiz sull'aspetto fisico" nel testo (v. messages/*.json), solo come
+// scelta di stile visivo generale.
+
+export type PosizioneTorneo = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
+
+export interface PartecipanteTorneo {
+  posizione: PosizioneTorneo;
+  cluster_id: string;
+  foto_url: string;
+}
+
+export interface TorneoInizio {
+  sessione_id: string;
+  partecipanti: PartecipanteTorneo[];
+}
+
+export interface ConfrontoIn {
+  sessione_id: string;
+  turno: number;
+  cluster_id_a: string;
+  cluster_id_b: string;
+  cluster_id_vincitore: string;
+}
+
+export interface ConfrontoOut {
+  completato: boolean;
+  cluster_id_vincitore_torneo: string | null;
+  foto_preferenza_urls: string[] | null;
+}
+
+export interface PreferenzaEsteticaOut {
+  completato: boolean;
+  data_completamento: string | null;
+  foto_preferenza_urls: string[] | null;
 }

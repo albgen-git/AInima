@@ -111,7 +111,9 @@ PERSONE = [
             "score_big5_nevroticismo": 0.46875, "score_big5_apertura": 0.875,
             "confidenza_big5_estroversione": 1.0, "confidenza_big5_gradevolezza": 1.0,
             "confidenza_big5_coscienziosita": 1.0, "confidenza_big5_nevroticismo": 1.0, "confidenza_big5_apertura": 1.0,
-            "ansia_score": 0.19444445, "evitamento_score": 0.5555556, "stile_attaccamento": "Evitante",
+            # stile_attaccamento RIMOSSO (v. CLAUDE.md 2026-09-06) — colonna
+            # non più persistita, i due punteggi sotto bastano.
+            "ansia_score": 0.19444445, "evitamento_score": 0.5555556,
             "confidenza_attaccamento_ansia": 1.0, "confidenza_attaccamento_evitamento": 0.6,
             "eq_pilastro_autoconsapevolezza": 0.5416667, "eq_pilastro_autoregolazione": 0.9166667,
             "eq_pilastro_empatia": 0.625, "eq_pilastro_responsabilita": 0.7916667, "score_maturita_emotiva": 0.71875,
@@ -194,7 +196,8 @@ PERSONE = [
             "score_big5_nevroticismo": 0.25, "score_big5_apertura": 0.75,
             "confidenza_big5_estroversione": 1.0, "confidenza_big5_gradevolezza": 1.0,
             "confidenza_big5_coscienziosita": 1.0, "confidenza_big5_nevroticismo": 1.0, "confidenza_big5_apertura": 1.0,
-            "ansia_score": 0.41666666, "evitamento_score": 0.3888889, "stile_attaccamento": "Sicuro",
+            # stile_attaccamento RIMOSSO (v. CLAUDE.md 2026-09-06).
+            "ansia_score": 0.41666666, "evitamento_score": 0.3888889,
             "confidenza_attaccamento_ansia": 1.0, "confidenza_attaccamento_evitamento": 0.6,
             "eq_pilastro_autoconsapevolezza": 0.45833334, "eq_pilastro_autoregolazione": 0.625,
             "eq_pilastro_empatia": 0.5416667, "eq_pilastro_responsabilita": 0.45833334, "score_maturita_emotiva": 0.5208334,

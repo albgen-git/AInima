@@ -384,14 +384,16 @@ def proponi_match_singolo(user_id: UUID):
     cur.execute("""
         INSERT INTO matches (user_a_id, user_b_id, stato, final_score,
                              data_scadenza_risposta, algoritmo_versione, algoritmo_parametri,
-                             shortlist_candidati, selezionato_per_somiglianza_visiva,
-                             flag_rifiuto_esplicito, flag_asimmetria_narrativa)
+                             shortlist_candidati,
+                             flag_rifiuto_esplicito, flag_asimmetria_narrativa,
+                             selezionato_per_torneo_estetico)
         VALUES (%s, %s, 'Proposto', %s, %s, %s, %s::jsonb, %s::uuid[], %s, %s, %s)
         RETURNING match_id
     """, (str(user_id), str(cand_id), esito["final_score"], scadenza,
           matching_engine.ALGORITMO_VERSIONE, json.dumps(cfg),
-          [str(c) for c in esito["shortlist"]], bool(esito["selezionato_per_somiglianza_visiva"]),
-          bool(esito["flag_rifiuto_esplicito"]), bool(esito["flag_asimmetria_narrativa"])))
+          [str(c) for c in esito["shortlist"]],
+          bool(esito["flag_rifiuto_esplicito"]), bool(esito["flag_asimmetria_narrativa"]),
+          bool(esito["selezionato_per_torneo_estetico"])))
     match_id = cur.fetchone()["match_id"]
     conn.commit()
 

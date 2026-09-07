@@ -227,15 +227,10 @@ def main():
         score_maturita = sum(eq_pilastri) / 4
         eq_autoconsapevolezza, eq_autoregolazione, eq_empatia, eq_responsabilita = eq_pilastri
 
-        if ansia_score < 0.5 and evitamento_score < 0.5:
-            stile_attaccamento = "Sicuro"
-        elif ansia_score >= 0.5 and evitamento_score < 0.5:
-            stile_attaccamento = "Ansioso"
-        elif ansia_score < 0.5 and evitamento_score >= 0.5:
-            stile_attaccamento = "Evitante"
-        else:
-            stile_attaccamento = "Timoroso/Disorganizzato"
-
+        # stile_attaccamento RIMOSSO (v. CLAUDE.md 2026-09-06, revisione
+        # privacy GDPR art. 9): la colonna non esiste più, l'etichetta a 4
+        # quadranti si calcola al volo solo dove serve mostrarla (v.
+        # routers/psychometric.py::calcola_stile_attaccamento).
         cur.execute(
             """
             INSERT INTO psychometric_scores (
@@ -244,8 +239,8 @@ def main():
                 score_maturita_emotiva,
                 eq_pilastro_autoconsapevolezza, eq_pilastro_autoregolazione,
                 eq_pilastro_empatia, eq_pilastro_responsabilita,
-                ansia_score, evitamento_score, stile_attaccamento
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ansia_score, evitamento_score
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 score_big5_estroversione = EXCLUDED.score_big5_estroversione,
                 score_big5_gradevolezza = EXCLUDED.score_big5_gradevolezza,
@@ -258,14 +253,13 @@ def main():
                 eq_pilastro_empatia = EXCLUDED.eq_pilastro_empatia,
                 eq_pilastro_responsabilita = EXCLUDED.eq_pilastro_responsabilita,
                 ansia_score = EXCLUDED.ansia_score,
-                evitamento_score = EXCLUDED.evitamento_score,
-                stile_attaccamento = EXCLUDED.stile_attaccamento
+                evitamento_score = EXCLUDED.evitamento_score
             """,
             (
                 str(user_id), big5["estroversione"], big5["gradevolezza"],
                 big5["coscienziosita"], big5["nevroticismo"], big5["apertura"],
                 score_maturita, eq_autoconsapevolezza, eq_autoregolazione, eq_empatia, eq_responsabilita,
-                ansia_score, evitamento_score, stile_attaccamento,
+                ansia_score, evitamento_score,
             ),
         )
         # flag_profilo_per_revisione_dati (e le confidenze EQ derivate)

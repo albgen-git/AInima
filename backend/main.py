@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 
 from routers import (
     account, admin, admin_viewer, auth, contacts, engagement, feedback, internal_cron, matching,
-    payments, personal_report, preferences, profile, psychometric,
+    payments, personal_report, preferences, profile, psychometric, torneo_estetico,
 )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -63,5 +63,6 @@ app.include_router(feedback.router)
 app.include_router(engagement.router)
 app.include_router(internal_cron.router)
 app.include_router(personal_report.router)
+app.include_router(torneo_estetico.router)
 app.include_router(admin.router)
 app.include_router(admin_viewer.router)  # viewer HTML, monta anche "/" — ultimo per non oscurare le altre rotte

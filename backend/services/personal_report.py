@@ -40,7 +40,7 @@ def _assembla_punteggi(cur, user_id: UUID) -> dict:
     cur.execute("""
         SELECT score_big5_estroversione, score_big5_gradevolezza, score_big5_coscienziosita,
                score_big5_nevroticismo, score_big5_apertura,
-               ansia_score, evitamento_score, stile_attaccamento,
+               ansia_score, evitamento_score,
                eq_pilastro_autoconsapevolezza, eq_pilastro_autoregolazione,
                eq_pilastro_empatia, eq_pilastro_responsabilita, score_maturita_emotiva,
                profilo_valori_self, profilo_stile_vita_self,
@@ -54,9 +54,14 @@ def _assembla_punteggi(cur, user_id: UUID) -> dict:
             "coscienziosita": r["score_big5_coscienziosita"], "nevroticismo": r["score_big5_nevroticismo"],
             "apertura": r["score_big5_apertura"],
         },
+        # stile_prevalente RIMOSSO dall'input al Prompt 5 (v. CLAUDE.md
+        # 2026-09-06, revisione privacy GDPR art. 9): era una categoria
+        # clinica passata al modello generativo, mitigata solo con
+        # un'istruzione di prompt a non ripeterla — mai una vera garanzia.
+        # L'LLM può ancora descrivere pattern di attaccamento a partire dai
+        # due punteggi continui sotto, senza ricevere l'etichetta pre-fatta.
         "attaccamento": {
             "ansia": r["ansia_score"], "evitamento": r["evitamento_score"],
-            "stile_prevalente": r["stile_attaccamento"],
         },
         "eq": {
             "autoconsapevolezza": r["eq_pilastro_autoconsapevolezza"],

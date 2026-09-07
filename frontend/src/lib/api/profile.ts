@@ -1,10 +1,5 @@
 import { apiClient } from "./client";
-import type {
-  IdealPartnerPhotoResponse,
-  ProfileOut,
-  ProfilePhotoResponse,
-  ProfileUpdate,
-} from "./types";
+import type { ProfileOut, ProfilePhotoResponse, ProfileUpdate } from "./types";
 
 export const profileApi = {
   getProfile: (userId: string) =>
@@ -21,15 +16,6 @@ export const profileApi = {
     form.append("file", file);
     return apiClient.postForm<ProfilePhotoResponse>(
       `/users/${userId}/profile-photo`,
-      form
-    );
-  },
-
-  uploadIdealPartnerPhoto: (userId: string, file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    return apiClient.postForm<IdealPartnerPhotoResponse>(
-      `/users/${userId}/ideal-partner-photo`,
       form
     );
   },

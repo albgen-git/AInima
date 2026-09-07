@@ -100,12 +100,10 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
   const tCommon = useTranslations("common");
 
   const profileUpload = useAsyncAction(profileApi.uploadProfilePhoto);
-  const idealUpload = useAsyncAction(profileApi.uploadIdealPartnerPhoto);
   // RF-08c: avviso "più volti rilevati" — non blocca l'upload (v.
   // backend/routers/profile.py), solo un segnale informativo dopo il
   // salvataggio.
   const [profileMultiFace, setProfileMultiFace] = useState(false);
-  const [idealMultiFace, setIdealMultiFace] = useState(false);
 
   async function handleUploadProfile(file: File) {
     if (!state.userId) return;
@@ -113,15 +111,6 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
     if (result) {
       update("foto_profilo_url", result.foto_profilo_url);
       setProfileMultiFace(result.volti_multipli_rilevati);
-    }
-  }
-
-  async function handleUploadIdeal(file: File) {
-    if (!state.userId) return;
-    const result = await idealUpload.run(state.userId, file);
-    if (result) {
-      update("foto_partner_ideale_url", result.foto_partner_ideale_url);
-      setIdealMultiFace(result.volti_multipli_rilevati);
     }
   }
 
@@ -151,21 +140,6 @@ export function StepPhotos({ state, update, onNext, onBack }: StepProps) {
           changeLabel={t("changePhoto")}
           multipleFacesWarning={t("multipleFacesWarning")}
           showMultipleFacesWarning={profileMultiFace}
-        />
-
-        <PhotoUploadBlock
-          label={t("idealLabel")}
-          hint={t("idealHint")}
-          uploadedUrl={state.foto_partner_ideale_url}
-          onUpload={handleUploadIdeal}
-          uploading={idealUpload.loading}
-          error={idealUpload.error}
-          uploadLabel={t("upload")}
-          uploadingLabel={t("uploading")}
-          uploadedLabel={t("uploaded")}
-          changeLabel={t("changePhoto")}
-          multipleFacesWarning={t("multipleFacesWarning")}
-          showMultipleFacesWarning={idealMultiFace}
         />
 
         <Alert tone="info">{t("moderationNote")}</Alert>

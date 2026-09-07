@@ -115,15 +115,18 @@ CREATE TABLE IF NOT EXISTS physical_profile (
     fumo                            BOOLEAN,
     alcol                           BOOLEAN,
     stile_vita_sport                VARCHAR(40),
-    foto_profilo_url                VARCHAR(255),
-    foto_partner_ideale_url         VARCHAR(255)
+    foto_profilo_url                VARCHAR(255)
     -- embedding_visivo_profilo/embedding_visivo_partner_ideale (ArcFace
     -- 512-dim) RIMOSSI 2026-09-03 — migrazione ad AWS Rekognition
     -- CompareFaces on-demand (RF-11b, v. CLAUDE.md,
     -- scripts/migrate_2026_09_03_rimuovi_embedding_visivo.py): il confronto
     -- di somiglianza visiva non ha più nulla di precalcolato/persistito,
-    -- chiama l'API direttamente su foto_profilo_url/foto_partner_ideale_url
-    -- al momento della generazione della proposta.
+    -- chiama l'API direttamente su foto_profilo_url al momento della
+    -- generazione della proposta.
+    -- foto_partner_ideale_url RIMOSSA 2026-09-07 — l'upload libero della
+    -- foto "partner ideale" è stato sostituito dal torneo estetico
+    -- (RF-08b/c, v. torneo_estetico_cluster/preferenza_estetica_utente
+    -- sotto e CLAUDE.md).
 );
 
 -- ------------------------------------------------------------
@@ -215,10 +218,13 @@ CREATE TABLE IF NOT EXISTS psychometric_scores (
     -- ECR-R-like, sostituiscono la distribuzione a 4 stili dedotta da LLM.
     ansia_score                      REAL,
     evitamento_score                 REAL,
-    -- derivato per sole finalità di UI dalle soglie deterministiche di
-    -- Ainima_Test_Attaccamento_v1.md §5 Step 4 — mai usato nel calcolo di
-    -- matching, che lavora sempre sulle due dimensioni continue sopra.
-    stile_attaccamento               VARCHAR(30),
+    -- stile_attaccamento RIMOSSO (v. CLAUDE.md 2026-09-06, revisione
+    -- privacy GDPR art. 9 — categoria clinica derivata da uno strumento
+    -- tipo ECR-R, mai usata dal matching): l'etichetta a 4 quadranti non
+    -- viene più persistita, solo calcolata al volo dai due punteggi sopra
+    -- dove serve mostrarla (pannello admin, v. routers/psychometric.py::
+    -- calcola_stile_attaccamento). Rimossa con
+    -- scripts/migrate_2026_09_06_rimuovi_stile_attaccamento.py.
     -- confidenza_dimensione per Attaccamento (Ainima_Test_Attaccamento_v1.md
     -- §5 Step 3bis, Blocco C seconda passata — v. CLAUDE.md): stessa identica
     -- logica del Big Five (varianza interna, item invertiti AN2/AN5/AN8 e
@@ -419,15 +425,9 @@ CREATE TABLE IF NOT EXISTS matches (
     -- sullo stesso match prima che l'invio sia confermato riuscito.
     notifica_scadenza_inviata          BOOLEAN NOT NULL DEFAULT FALSE,
     shortlist_candidati                UUID[],
-    -- v. RF-11a/RF-11b: true se il vincitore finale non è il primo per
-    -- punteggio caratteriale puro nella shortlist, cioè se la somiglianza
-    -- visiva ha davvero cambiato la scelta rispetto al solo FINAL_SCORE
-    -- (stable_v3 — v. CLAUDE.md; prima del 2026-08-19 indicava un tie-break
-    -- tra candidati quasi pari, non più il comportamento attuale)
-    selezionato_per_somiglianza_visiva BOOLEAN NOT NULL DEFAULT FALSE,
     -- Blocco D (v. CLAUDE.md): 2 flag per-coppia, persistiti QUI al momento
     -- della creazione del match (stesso trattamento di
-    -- selezionato_per_somiglianza_visiva sopra) — non ricalcolati a
+    -- selezionato_per_torneo_estetico sotto) — non ricalcolati a
     -- posteriori, per poter ricostruire "perché questo match" anche a
     -- distanza di tempo tramite GET /admin/matches/{id}/why, anche se il
     -- profilo di uno dei due cambia nel frattempo. Mai esposti come
@@ -445,7 +445,60 @@ CREATE TABLE IF NOT EXISTS matches (
     -- (non una per utente) — generata una volta e mostrata identica a
     -- entrambe le parti, mai rigenerata ad ogni GET.
     analisi_caratteriale_coppia          TEXT,
+    -- Torneo estetico (v. CLAUDE.md 2026-09-06/07): true se lo spareggio
+    -- secondario tra candidati quasi pari per FINAL_SCORE ha davvero
+    -- cambiato l'esito rispetto al solo punteggio caratteriale — dal
+    -- 2026-09-07 l'unico spareggio estetico del sistema (sostituisce per
+    -- intero il precedente selezionato_per_somiglianza_visiva, rimosso).
+    selezionato_per_torneo_estetico     BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT chk_users_diversi CHECK (user_a_id <> user_b_id)
+);
+
+-- ------------------------------------------------------------
+-- Torneo estetico — spareggio secondario tramite preferenza estetica
+-- (v. CLAUDE.md, nuova feature 2026-09-06). Non tocca pesi/soglie del
+-- FINAL_SCORE esistente: entra in gioco SOLO quando due o più candidati
+-- sono già quasi pari per punteggio caratteriale (v.
+-- system_config.soglia_pareggio_final_score).
+-- ------------------------------------------------------------
+
+-- Rappresentanti del clustering offline (una tantum, non per utente) —
+-- 8 per genere in questa fase (16 righe totali). MVP: popolati con
+-- estrazione CASUALE dal pool demo (v. metodo_selezione), non da un vero
+-- clustering a embedding — la tabella è comunque pronta per quando in
+-- produzione un vero script di clustering la ripopolerà (stessa forma,
+-- popolamento diverso). Nessuna migrazione prevista al cambio pool: lo
+-- script va rilanciato da capo, il DB di test si abbandona.
+CREATE TABLE IF NOT EXISTS torneo_estetico_cluster (
+    cluster_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    genere               genere_enum NOT NULL,
+    foto_url               VARCHAR(255) NOT NULL,
+    source_actor_id         INT, -- riferimento al profilo demo sorgente della foto, per audit
+    metodo_selezione         VARCHAR(20) NOT NULL DEFAULT 'casuale_mvp', -- 'casuale_mvp' | 'clustering_embedding'
+    data_creazione            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Log di ogni singolo confronto del torneo (non solo il risultato finale)
+-- — stesso principio di tracciabilità già applicato a pillole_inviate_log.
+CREATE TABLE IF NOT EXISTS torneo_estetico_confronti (
+    confronto_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id              UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    sessione_id           UUID NOT NULL, -- raggruppa i 7 confronti di una stessa sessione di torneo
+    turno                  SMALLINT NOT NULL, -- 1, 2 o 3
+    cluster_id_a             UUID NOT NULL REFERENCES torneo_estetico_cluster(cluster_id),
+    cluster_id_b             UUID NOT NULL REFERENCES torneo_estetico_cluster(cluster_id),
+    cluster_id_vincitore      UUID NOT NULL REFERENCES torneo_estetico_cluster(cluster_id),
+    data_confronto             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Risultato finale per utente: le 10 foto di preferenza estetica derivate
+-- dal cluster vincitore (Parte 3 — selezionate via CompareFaces dal pool
+-- intero, non solo dal cluster vincitore).
+CREATE TABLE IF NOT EXISTS preferenza_estetica_utente (
+    user_id               UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    cluster_id_vincitore    UUID NOT NULL REFERENCES torneo_estetico_cluster(cluster_id),
+    foto_preferenza_urls      TEXT[] NOT NULL, -- 10 riferimenti foto, pool intero
+    data_completamento         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ------------------------------------------------------------
@@ -712,11 +765,14 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     -- calcolo vettoriale su tutto il pool, questo parametro regola solo
     -- quanti report testuali (Prompt 5) pre-generare, non i punteggi.
     ('report_top_candidates',         '10',   'Numero di candidati migliori per cui pre-generare un report testuale (Prompt 5) — non influenza il calcolo dei punteggi'),
-    -- RF-11a/RF-25b: dimensione della shortlist per carattere da cui, se
-    -- l'utente ha caricato la foto "partner ideale", si sceglie SEMPRE il
-    -- candidato visivamente più simile (v. decisione utente, sostituisce il
-    -- tie-break-solo-tra-quasi-pari deciso il 12/08 — v. CLAUDE.md).
-    ('dimensione_shortlist_analisi_visiva', '5', 'Numero di candidati Top N per compatibilità caratteriale tra cui scegliere per somiglianza visiva (RF-11a/RF-11b), se la foto "partner ideale" è presente'),
+    -- RF-11a/RF-25b: dimensione della shortlist di candidati Top N per
+    -- compatibilità caratteriale, persistita in matches.shortlist_candidati
+    -- per audit/tracciabilità (RF-11a). Storicamente regolava anche il pool
+    -- del vecchio spareggio visivo sempre-attivo (RF-11a/b originale,
+    -- rimosso 2026-09-07 — v. CLAUDE.md); il torneo estetico che l'ha
+    -- sostituito non usa più questo parametro (agisce sul prefisso di
+    -- candidati quasi pari, non su una shortlist di dimensione fissa).
+    ('dimensione_shortlist_analisi_visiva', '5', 'Numero di candidati Top N per compatibilità caratteriale persistiti come shortlist di audit (RF-11a)'),
     -- stable_v5 (v. CLAUDE.md — test di matching reale Pietro/Lena Gallo):
     -- 0.20 era un valore assoluto scelto a occhio — verificato che il 90°
     -- percentile della similarità ArcFace tra coppie CASUALI del pool era
@@ -736,6 +792,7 @@ INSERT INTO system_config (chiave, valore, descrizione) VALUES
     ('weight_eq_empatia',              '0.25', 'Peso del pilastro Empatia in score_maturita_emotiva'),
     ('weight_eq_responsabilita',       '0.25', 'Peso del pilastro Responsabilità relazionale in score_maturita_emotiva'),
     ('soglia_minima_proposta',         '0.55', 'Sotto questa soglia nessuna proposta viene generata quel mese (Slow Matching)'),
+    ('soglia_pareggio_final_score',    '0.03', 'Torneo estetico: differenza massima di FINAL_SCORE tra candidati perché siano considerati "quasi pari" e attivino lo spareggio secondario — stesso valore già documentato per il vecchio tie-break RF-11a/b (v. CLAUDE.md 12/08) prima che diventasse selezione diretta'),
     ('fee_match_confermato_eur',       '15',   'Fee addebitata a ciascun utente alla conferma reciproca del match (v. decisione in CLAUDE.md)'),
     ('recupero_accesso_grazia_ore',    '48',   'Ore del periodo di grazia dopo l''approvazione di un cambio email, entro cui la vecchia email può annullare (RF-26d)'),
     -- Rinominato da finestra_risposta_match_giorni per allinearsi alla

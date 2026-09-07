@@ -116,9 +116,12 @@ class AttaccamentoSubmission(BaseModel):
 class AttaccamentoResult(BaseModel):
     ansia_score: float
     evitamento_score: float
-    # SOLO per la UI (Ainima_Test_Attaccamento_v1.md §5 Step 4) — mai usato
-    # nel calcolo di matching, che lavora sempre sulle due dimensioni sopra.
-    stile_attaccamento: str
+    # stile_attaccamento RIMOSSO (v. CLAUDE.md 2026-09-06, revisione privacy
+    # GDPR art. 9): l'etichetta a 4 quadranti non viene più persistita né
+    # restituita da questo endpoint — solo calcolabile al volo dai due
+    # punteggi sopra (v. routers/psychometric.py::calcola_stile_attaccamento),
+    # usata solo nel pannello admin. Il frontend non l'ha mai renderizzata
+    # (verificato), quindi la rimozione non cambia alcun comportamento visibile.
 
 
 class EqSubmission(BaseModel):

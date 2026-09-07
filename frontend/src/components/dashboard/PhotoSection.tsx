@@ -73,22 +73,17 @@ function PhotoSlotView({
 export function PhotoSection({ userId }: { userId: string }) {
   const t = useTranslations("dashboard.photos");
   const [fotoProfilo, setFotoProfilo] = useState<string | null>(null);
-  const [fotoIdeale, setFotoIdeale] = useState<string | null>(null);
   const [revisioneProfilo, setRevisioneProfilo] = useState(false);
-  const [revisioneIdeale, setRevisioneIdeale] = useState(false);
   // RF-08c: avviso "più volti rilevati" (AWS Rekognition DetectFaces) —
   // non blocca l'upload, solo un segnale informativo.
   const [multiFaceProfilo, setMultiFaceProfilo] = useState(false);
-  const [multiFaceIdeale, setMultiFaceIdeale] = useState(false);
   const loadAction = useAsyncAction(profileApi.getProfile);
   const profiloAction = useAsyncAction(profileApi.uploadProfilePhoto);
-  const idealeAction = useAsyncAction(profileApi.uploadIdealPartnerPhoto);
 
   useEffect(() => {
     loadAction.run(userId).then((result) => {
       if (!result) return;
       setFotoProfilo(result.foto_profilo_url);
-      setFotoIdeale(result.foto_partner_ideale_url);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -97,11 +92,11 @@ export function PhotoSection({ userId }: { userId: string }) {
   // NON aggiorniamo la foto mostrata (resta quella precedente, se c'era)
   // invece di sostituirla silenziosamente con una non ancora approvata.
   // Limite noto, non risolvibile solo lato frontend: il backend sovrascrive
-  // comunque foto_*_url alla nuova immagine al momento dell'upload (nessun
-  // campo di staging separato oggi) — un ricaricamento della pagina
-  // mostrerebbe quindi la nuova foto in revisione. Segnalato come lavoro
-  // successivo lato backend, non implementato qui (fuori dallo scope
-  // "solo frontend" di questa modifica).
+  // comunque foto_profilo_url alla nuova immagine al momento dell'upload
+  // (nessun campo di staging separato oggi) — un ricaricamento della
+  // pagina mostrerebbe quindi la nuova foto in revisione. Segnalato come
+  // lavoro successivo lato backend, non implementato qui (fuori dallo
+  // scope "solo frontend" di questa modifica).
   async function handleProfiloFile(file: File) {
     setRevisioneProfilo(false);
     setMultiFaceProfilo(false);
@@ -115,19 +110,6 @@ export function PhotoSection({ userId }: { userId: string }) {
     setFotoProfilo(result.foto_profilo_url);
   }
 
-  async function handleIdealeFile(file: File) {
-    setRevisioneIdeale(false);
-    setMultiFaceIdeale(false);
-    const result = await idealeAction.run(userId, file);
-    if (!result) return;
-    setMultiFaceIdeale(result.volti_multipli_rilevati);
-    if (result.esito_moderazione === "Sospetta") {
-      setRevisioneIdeale(true);
-      return;
-    }
-    setFotoIdeale(result.foto_partner_ideale_url);
-  }
-
   return (
     <Card id="foto" className="scroll-mt-6">
       <h2 className="font-display text-xl text-navy">{t("title")}</h2>
@@ -137,7 +119,7 @@ export function PhotoSection({ userId }: { userId: string }) {
           upload, non solo come messaggio d'errore dopo un rifiuto. */}
       <Alert tone="info" className="mt-4">{t("faceGuidance")}</Alert>
 
-      <div className="mt-5 grid grid-cols-2 gap-6">
+      <div className="mt-5 flex justify-center">
         <PhotoSlotView
           label={t("profileLabel")}
           emptyLabel={t("noPhoto")}
@@ -147,17 +129,6 @@ export function PhotoSection({ userId }: { userId: string }) {
           inRevisione={revisioneProfilo}
           volteMultipli={multiFaceProfilo}
           onFile={handleProfiloFile}
-        />
-        <PhotoSlotView
-          label={t("idealLabel")}
-          hint={t("idealHint")}
-          emptyLabel={t("noIdealPhoto")}
-          url={fotoIdeale}
-          loading={idealeAction.loading}
-          error={idealeAction.error}
-          inRevisione={revisioneIdeale}
-          volteMultipli={multiFaceIdeale}
-          onFile={handleIdealeFile}
         />
       </div>
     </Card>

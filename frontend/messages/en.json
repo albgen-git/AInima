@@ -31,7 +31,8 @@
     "proposal": "Proposal",
     "rubrica": "Contacts",
     "profile": "Profile",
-    "preferences": "Criteria"
+    "preferences": "Criteria",
+    "torneoEstetico": "Style"
   },
   "userMenu": {
     "openMenu": "Open user menu",
@@ -193,11 +194,9 @@
     },
     "photos": {
       "title": "Your photos",
-      "subtitle": "A profile photo is required to activate your account. The ideal-partner photo is optional.",
+      "subtitle": "A profile photo is required to activate your account.",
       "profileLabel": "Profile photo",
       "profileHint": "Visible to the other party only after a confirmed match.",
-      "idealLabel": "\"Ideal partner\" photo (optional)",
-      "idealHint": "A purely visual aesthetic reference — not a real profile. It's used only as a secondary tie-breaker between two candidates already highly compatible on character, never as a primary matching criterion. If you don't have a suitable picture, you can upload a photo of a public figure who reflects the look you have in mind.",
       "faceGuidance": "For a reliable match: a close-up shot (not full-body), facing the camera and not in profile, in focus and well lit, only one person in the frame, no sunglasses or hats covering the face.",
       "multipleFacesWarning": "We detected more than one person in this photo. For an easier check, prefer a photo where only you appear.",
       "moderationNote": "Every uploaded photo goes through a review before being made visible to other users.",
@@ -392,10 +391,7 @@
       "title": "Your photos",
       "subtitle": "Replace them any time — new photos go through automatic review again.",
       "profileLabel": "Profile photo",
-      "idealLabel": "Ideal partner",
-      "idealHint": "A purely aesthetic reference, not a real profile — you can also upload a photo of a public figure who reflects the look you have in mind.",
       "noPhoto": "No photo",
-      "noIdealPhoto": "Not uploaded — optional",
       "faceGuidance": "For a reliable match: a close-up shot (not full-body), facing the camera and not in profile, in focus and well lit, only one person in the frame, no sunglasses or hats covering the face.",
       "multipleFacesWarning": "We detected more than one person in this photo. For an easier check, prefer a photo where only you appear.",
       "upload": "Upload photo",
@@ -460,5 +456,17 @@
     "subtitle": "Review them anytime — if you haven't been getting proposals lately, loosening them can help.",
     "saved": "Changes saved",
     "save": "Save changes"
+  },
+  "torneoEstetico": {
+    "title": "Your style",
+    "intro": "Some future proposals might turn out to have a very similar character compatibility to each other — in those (rare) cases, we'll also use a general visual style preference of yours to choose. It's optional, and it never excludes anyone on its own: it only matters to decide between proposals that are already equivalent on everything else.",
+    "introDettaglio": "We'll show you 8 photos in pairs, one pair at a time: just pick the one you like better at a glance. 7 quick picks and we're done.",
+    "iniziaCta": "Start (7 picks, ~1 minute)",
+    "progress": "Comparison {current} of {total}",
+    "scegliCta": "Choose this one",
+    "riepilogoSubtitle": "You've already completed this style choice.",
+    "completatoBadge": "Preference saved",
+    "rifaiCta": "Redo the choice",
+    "risultatoBody": "Done — we've saved your style preference. We'll only use it as a secondary tie-break between proposals that are already very close on compatibility."
   }
 }

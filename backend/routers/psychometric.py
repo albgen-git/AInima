@@ -98,9 +98,36 @@ def calcola_big_five(risposte: dict) -> tuple[BigFiveResult, dict]:
     return BigFiveResult(**punteggi), confidenza
 
 
+def calcola_stile_attaccamento(ansia_score: float | None, evitamento_score: float | None) -> str | None:
+    """Ainima_Test_Attaccamento_v1.md §5 Step 4 — etichetta a 4 quadranti,
+    PURAMENTE PRESENTAZIONALE (solo pannello admin, v. admin_viewer.py).
+    Non persistita da nessuna parte (v. CLAUDE.md 2026-09-06, revisione
+    privacy GDPR art. 9: è una categoria clinica derivata da uno strumento
+    tipo ECR-R — tenerla solo in memoria al momento della visualizzazione
+    riduce l'esposizione senza perdere nulla, dato che il matching lavora
+    solo sui due punteggi continui). Soglia >=0.5/>=0.5, DIVERSA da quella
+    usata per il flag di revisione umana (>0.7/>0.7, più severa — v.
+    _ricalcola_confidenza_e_flag) — le due servono a scopi diversi, non
+    vanno confuse."""
+    if ansia_score is None or evitamento_score is None:
+        return None
+    if ansia_score < 0.5 and evitamento_score < 0.5:
+        return "Sicuro"
+    elif ansia_score >= 0.5 and evitamento_score < 0.5:
+        return "Ansioso"
+    elif ansia_score < 0.5 and evitamento_score >= 0.5:
+        return "Evitante"
+    else:
+        return "Timoroso/Disorganizzato"
+
+
 def calcola_attaccamento(risposte: dict) -> tuple[AttaccamentoResult, dict]:
     """Ainima_Test_Attaccamento_v1.md §5. ansia_score/evitamento_score sono
-    il dato primario; stile_attaccamento è derivato SOLO per la UI.
+    l'UNICO dato calcolato/persistito qui — lo stile a 4 quadranti non
+    viene più prodotto da questa funzione: è puramente presentazionale,
+    calcolato al volo solo dove serve mostrarlo (v. calcola_stile_
+    attaccamento sopra), mai scritto su psychometric_scores né restituito
+    da questo endpoint (v. CLAUDE.md 2026-09-06).
 
     Ritorna anche (Blocco C, seconda passata — §5 Step 3bis) la confidenza
     per le 2 dimensioni: stessa identica formula del Big Five (range >= 3.5
@@ -128,16 +155,7 @@ def calcola_attaccamento(risposte: dict) -> tuple[AttaccamentoResult, dict]:
             0.6 if (max(ricodificati_evitamento) - min(ricodificati_evitamento)) >= 3.5 else 1.0,
     }
 
-    if ansia_score < 0.5 and evitamento_score < 0.5:
-        stile = "Sicuro"
-    elif ansia_score >= 0.5 and evitamento_score < 0.5:
-        stile = "Ansioso"
-    elif ansia_score < 0.5 and evitamento_score >= 0.5:
-        stile = "Evitante"
-    else:
-        stile = "Timoroso/Disorganizzato"
-
-    risultato = AttaccamentoResult(ansia_score=ansia_score, evitamento_score=evitamento_score, stile_attaccamento=stile)
+    risultato = AttaccamentoResult(ansia_score=ansia_score, evitamento_score=evitamento_score)
     return risultato, confidenza
 
 
@@ -362,11 +380,11 @@ def submit_attaccamento(user_id: UUID, payload: AttaccamentoSubmission):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        UPDATE psychometric_scores SET ansia_score = %s, evitamento_score = %s, stile_attaccamento = %s,
+        UPDATE psychometric_scores SET ansia_score = %s, evitamento_score = %s,
             confidenza_attaccamento_ansia = %s, confidenza_attaccamento_evitamento = %s
         WHERE user_id = %s
     """, (
-        risultato.ansia_score, risultato.evitamento_score, risultato.stile_attaccamento,
+        risultato.ansia_score, risultato.evitamento_score,
         confidenza["confidenza_attaccamento_ansia"], confidenza["confidenza_attaccamento_evitamento"],
         str(user_id),
     ))

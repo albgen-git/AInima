@@ -81,6 +81,17 @@ creato/persistito con una versione precedente di questa logica (solo
 test ad-hoc su script), quindi questa nota descrive lo stato finale di
 stable_v9 in un unico blocco invece di frammentare la cronologia in più
 sotto-versioni mai realmente usate in produzione.
+
+Aggiornamento 2026-09-07 (stable_v13, v. CLAUDE.md — rimozione del vecchio
+spareggio estetico): l'intero meccanismo descritto sopra (somiglianza_
+visiva(), seleziona_per_somiglianza_visiva(), foto_partner_ideale_url) è
+stato RIMOSSO, non solo disattivato — sostituito per intero dal torneo
+estetico (applica_spareggio_estetico(), RF-08b/c, v. CLAUDE.md 2026-09-06),
+l'unico spareggio estetico rimasto. Decisione di prodotto esplicita
+dell'utente: l'upload libero di una foto "partner ideale", sempre attivo
+sulla shortlist indipendentemente da quanto i candidati fossero già vicini
+per compatibilità caratteriale, è sostituito dal torneo — attivo solo sui
+candidati in quasi pareggio (system_config.soglia_pareggio_final_score).
 """
 
 import json
@@ -95,7 +106,7 @@ from services import face_recognition, tag_matching
 # estesa — da aggiornare (nuova riga in quella tabella + bump qui) ogni
 # volta che cambia la LOGICA dell'algoritmo, non i soli parametri (quelli
 # sono già tracciati automaticamente via system_config, v. run_monthly_batch).
-ALGORITMO_VERSIONE = "stable_v11"
+ALGORITMO_VERSIONE = "stable_v13"
 
 # Sopra questa penalità sui rifiuti espliciti, il flag va esposto invece
 # di restare nascosto dentro la media (Ainima_Liste_Piace_Detesta_v1.md §5).
@@ -501,14 +512,14 @@ def load_pool(cur):
                d.pref_desidera_figli_futuri,
                sc.pref_altezza_min, sc.pref_altezza_max, sc.pref_fumo, sc.pref_alcol,
                sc.pref_importanza_religione, sc.pref_stato_civile_accettato,
-               p.altezza_cm, p.fumo, p.alcol, p.foto_profilo_url, p.foto_partner_ideale_url,
+               p.altezza_cm, p.fumo, p.alcol, p.foto_profilo_url,
                so.importanza_religione, so.importanza_vicinanza_geografica, so.lingue_parlate,
                ps.score_big5_estroversione, ps.score_big5_gradevolezza,
                ps.score_big5_coscienziosita, ps.score_big5_nevroticismo, ps.score_big5_apertura,
                ps.confidenza_big5_estroversione, ps.confidenza_big5_gradevolezza,
                ps.confidenza_big5_coscienziosita, ps.confidenza_big5_nevroticismo,
                ps.confidenza_big5_apertura,
-               ps.score_maturita_emotiva, ps.ansia_score, ps.evitamento_score, ps.stile_attaccamento,
+               ps.score_maturita_emotiva, ps.ansia_score, ps.evitamento_score,
                ps.eq_pilastro_autoconsapevolezza, ps.eq_pilastro_autoregolazione,
                ps.eq_pilastro_empatia, ps.eq_pilastro_responsabilita,
                ps.flag_profilo_per_revisione_dati,
@@ -516,7 +527,8 @@ def load_pool(cur):
                ps.profilo_stile_vita_self, ps.profilo_stile_vita_partner_ideale,
                ps.profilo_dinamica_relazionale_self, ps.profilo_dinamica_relazionale_partner_ideale,
                ps.profilo_aspirazioni_self, ps.profilo_aspirazioni_partner_ideale,
-               it.mi_piace_tags, it.non_sopporto_tags, it.partner_vorrei_tags, it.partner_non_vorrei_tags
+               it.mi_piace_tags, it.non_sopporto_tags, it.partner_vorrei_tags, it.partner_non_vorrei_tags,
+               pe.foto_preferenza_urls
         FROM users u
         JOIN socio_profile s ON s.user_id = u.user_id
         JOIN dealbreaker_criteria d ON d.user_id = u.user_id
@@ -525,6 +537,7 @@ def load_pool(cur):
         JOIN socio_profile so ON so.user_id = u.user_id
         JOIN psychometric_scores ps ON ps.user_id = u.user_id
         LEFT JOIN interest_tags it ON it.user_id = u.user_id
+        LEFT JOIN preferenza_estetica_utente pe ON pe.user_id = u.user_id
         WHERE u.stato_account = 'Attivo'
     """)
     righe = cur.fetchall()
@@ -599,7 +612,6 @@ def load_pool(cur):
             "pref_importanza_religione": r["pref_importanza_religione"],
             "altezza_cm": r["altezza_cm"], "fumo": r["fumo"], "alcol": r["alcol"],
             "foto_profilo_url": r["foto_profilo_url"],
-            "foto_partner_ideale_url": r["foto_partner_ideale_url"],
             "importanza_religione": r["importanza_religione"],
             "importanza_vicinanza_geografica": r["importanza_vicinanza_geografica"],
             "lingue_parlate": r["lingue_parlate"],
@@ -616,11 +628,9 @@ def load_pool(cur):
             "conf_apertura": r["confidenza_big5_apertura"] if r["confidenza_big5_apertura"] is not None else 1.0,
             "ansia": r["ansia_score"] if r["ansia_score"] is not None else 0.5,
             "evitamento": r["evitamento_score"] if r["evitamento_score"] is not None else 0.5,
-            # Non usati da alcuna funzione di scoring (bigfive_score/eq_score
-            # leggono solo i campi sopra) — presenti nel pool solo come dato
-            # descrittivo per chi ne ha bisogno a valle (RF-12/RF-28, stesso
-            # trattamento già riservato a nome/cognome/foto_profilo_url).
-            "stile_attaccamento": r["stile_attaccamento"],
+            # stile_attaccamento RIMOSSO dal pool (v. CLAUDE.md 2026-09-06):
+            # non più persistito, mai usato da alcuna funzione di scoring
+            # (bigfive_score/eq_score leggono solo ansia/evitamento sopra).
             "eq_pilastro_autoconsapevolezza": r["eq_pilastro_autoconsapevolezza"],
             "eq_pilastro_autoregolazione": r["eq_pilastro_autoregolazione"],
             "eq_pilastro_empatia": r["eq_pilastro_empatia"],
@@ -638,6 +648,12 @@ def load_pool(cur):
             "profilo_dinamica_relazionale_partner_ideale": r["profilo_dinamica_relazionale_partner_ideale"],
             "profilo_aspirazioni_self": r["profilo_aspirazioni_self"],
             "profilo_aspirazioni_partner_ideale": r["profilo_aspirazioni_partner_ideale"],
+            # Torneo estetico (v. CLAUDE.md 2026-09-06) — None se l'utente
+            # non ha mai completato il torneo, usato solo da
+            # applica_spareggio_estetico() come CERCATORE (mai come
+            # candidato: lo spareggio confronta la foto profilo del
+            # candidato con LE PREFERENZE del cercatore, non viceversa).
+            "preferenza_estetica_foto": r["foto_preferenza_urls"],
         }
         for campo, tags_grezzi in (
             ("mi_piace", r["mi_piace_tags"]), ("non_sopporto", r["non_sopporto_tags"]),
@@ -673,76 +689,59 @@ def load_config_floats(cur):
     return risultato
 
 
-def somiglianza_visiva(seeker, cand):
-    """RF-11b via AWS Rekognition CompareFaces — BIDIREZIONALE: ideale-del-
-    cercatore vs profilo-del-candidato, E ideale-del-candidato vs
-    profilo-del-cercatore. Intento di prodotto confermato dall'utente
-    (2026-09-03): l'abbinamento deve premiare la coppia in cui ENTRAMBE le
-    persone somigliano all'ideale dichiarato dall'altra, non solo una
-    direzione.
+def applica_spareggio_estetico(seeker, candidati_ordinati, cfg):
+    """Torneo estetico (v. CLAUDE.md 2026-09-06/07) — spareggio secondario
+    per preferenza estetica. Fino al 2026-09-06 coesisteva con un
+    meccanismo precedente, sempre attivo, basato sull'upload libero di una
+    foto "partner ideale" (RF-11a/b originale) — quel meccanismo è stato
+    rimosso il 2026-09-07 (v. CLAUDE.md): questo torneo è oggi l'unico
+    spareggio estetico del sistema. Non tocca pesi/soglie del FINAL_SCORE: entra in
+    gioco SOLO quando due o più candidati in cima alla lista sono già
+    quasi pari per punteggio caratteriale (system_config.soglia_pareggio_
+    final_score, default 0.03 — stesso valore già documentato per il
+    vecchio tie-break RF-11a/b prima che diventasse selezione diretta).
 
-    Aggregazione a MEDIA GEOMETRICA (non aritmetica) quando ENTRAMBE le
-    direzioni sono calcolabili — scelta esplicita dell'utente dopo aver
-    trovato dal vivo che la media aritmetica lasciava passare coppie con
-    una direzione fortemente asimmetrica (es. 82 in un verso, 0.2
-    nell'altro → media aritmetica 41, comunque la migliore in shortlist):
-    pesa la SOMMA del segnale, non quanto è bilanciato tra le due
-    direzioni — esattamente il difetto che l'intento "ENTRAMBE le persone"
-    avrebbe dovuto escludere. La media geometrica collassa verso 0 se
-    anche una sola direzione è vicina a 0, senza essere binaria come il
-    minimo puro.
+    candidati_ordinati è già ordinato per "final" decrescente — i
+    "pareggiati" sono per costruzione un PREFISSO di questa lista (i
+    punteggi non fanno che scendere). Riordina SOLO quel prefisso per
+    similarità estetica media (CompareFaces tra ciascuna delle 10 foto di
+    preferenza del cercatore e la foto profilo del candidato), lascia
+    invariato il resto della lista.
 
-    Se una sola direzione è calcolabile (foto mancante da un lato, non un
-    vero segnale di dissomiglianza — v. services/face_recognition.py), si
-    usa quella disponibile SENZA penalità geometrica: la richiesta di
-    "entrambe le direzioni forti" si applica solo quando entrambe sono
-    davvero note. None solo se NESSUNA delle due direzioni è calcolabile."""
-    dir_a = dir_b = None
-    if seeker["foto_partner_ideale_url"] is not None and cand["foto_profilo_url"] is not None:
-        dir_a = face_recognition.confronta_foto(seeker["foto_partner_ideale_url"], cand["foto_profilo_url"])
-    if cand["foto_partner_ideale_url"] is not None and seeker["foto_profilo_url"] is not None:
-        dir_b = face_recognition.confronta_foto(cand["foto_partner_ideale_url"], seeker["foto_profilo_url"])
+    Ritorna (candidati_riordinati, selezionato_per_torneo_estetico: bool)."""
+    if len(candidati_ordinati) < 2:
+        return candidati_ordinati, False
 
-    if dir_a is not None and dir_b is not None:
-        return math.sqrt(dir_a * dir_b)
-    return dir_a if dir_a is not None else dir_b
+    foto_preferenza = seeker.get("preferenza_estetica_foto")
+    if not foto_preferenza:
+        return candidati_ordinati, False  # cercatore non ha mai completato il torneo
 
+    soglia = cfg.get("soglia_pareggio_final_score", 0.03)
+    migliore_score = candidati_ordinati[0]["final"]
+    k = 1
+    while k < len(candidati_ordinati) and migliore_score - candidati_ordinati[k]["final"] <= soglia:
+        k += 1
+    if k < 2:
+        return candidati_ordinati, False  # nessun pareggio reale in cima alla lista
 
-def seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n):
-    """RF-11a/RF-11b: shortlist dei primi n candidati per punteggio
-    caratteriale, poi — SOLO se il seeker ha caricato la foto "partner
-    ideale" — vince SEMPRE il candidato visivamente più simile tra questi
-    (CompareFaces, v. somiglianza_visiva sopra), non solo in caso di quasi
-    pareggio (v. decisione utente 2026-08-19). RNF-08: agisce solo dentro
-    la shortlist già filtrata su compatibilità, mai per bypassare i filtri
-    hard o la soglia minima.
+    prefisso = candidati_ordinati[:k]
+    resto = candidati_ordinati[k:]
 
-    2026-09-03 (stable_v9): NESSUNA soglia minima — a differenza della
-    calibrazione a percentile introdotta in stable_v5 per ArcFace (dove un
-    punteggio basso poteva essere puro rumore statistico), CompareFaces è
-    un punteggio di confidenza "stessa persona" nativo: anche un valore
-    basso resta il candidato visivamente più vicino disponibile in
-    shortlist, non equiparabile a rumore — scostamento esplicito dal
-    design precedente, segnalato all'utente. Se il confronto non è
-    calcolabile per NESSUNO dei candidati in shortlist (foto assenti/
-    errore sistemico), fallback al primo per compatibilità caratteriale —
-    stesso comportamento già in uso per "nessuna foto caricata".
+    def punteggio_estetico(c):
+        foto_candidato = c["cand"].get("foto_profilo_url")
+        if not foto_candidato:
+            return -1.0  # nessuna foto: resta in fondo al gruppo pareggiato, non esclude il candidato
+        valori = [face_recognition.confronta_foto(fp, foto_candidato) for fp in foto_preferenza]
+        valide = [v for v in valori if v is not None]
+        return sum(valide) / len(valide) if valide else -1.0
 
-    Ritorna (id_vincitore, selezionato_per_somiglianza_visiva: bool)."""
-    if seeker["foto_partner_ideale_url"] is None:
-        return id_ordinati[0], False  # RF-11b: fallback esplicito, nessuna foto caricata
-
-    shortlist = id_ordinati[:n]
-    punteggi = {cid: somiglianza_visiva(seeker, pool[cid]) for cid in shortlist}
-    if all(p is None for p in punteggi.values()):
-        return id_ordinati[0], False  # RF-11b: fallback, confronto non calcolabile per l'intera shortlist
-
-    vincitore_id = max(shortlist, key=lambda cid: punteggi[cid] if punteggi[cid] is not None else -1)
-    return vincitore_id, vincitore_id != id_ordinati[0]
+    prefisso_riordinato = sorted(prefisso, key=punteggio_estetico, reverse=True)
+    cambiato = prefisso_riordinato[0]["id"] != prefisso[0]["id"]
+    return prefisso_riordinato + resto, cambiato
 
 
 def find_best_match(seeker_id, pool, cfg, coppie_escluse=None):
-    """Applica STEP 0-4 + selezione visiva RF-11a/b per un singolo cercatore
+    """Applica STEP 0-4 + spareggio estetico condizionale RF-11b per un singolo cercatore
     contro tutto il pool in memoria. Ritorna un dizionario con l'esito
     strutturato — non scrive nulla. Usato dall'anteprima/trigger singolo
     (routers/matching.py::proponi_match_singolo) — il batch mensile usa
@@ -786,26 +785,23 @@ def find_best_match(seeker_id, pool, cfg, coppie_escluse=None):
         return {"esito": "nessun_candidato"}
 
     candidati.sort(key=lambda c: c["final"], reverse=True)
+    candidati, selezionato_per_torneo_estetico = applica_spareggio_estetico(seeker, candidati, cfg)
     migliore = candidati[0]
 
     if migliore["final"] < cfg["soglia_minima_proposta"]:
         return {"esito": "slow_matching", "top_score": migliore["final"]}
 
-    per_id = {c["id"]: c for c in candidati}
     n = int(cfg.get("dimensione_shortlist_analisi_visiva", 5))
-    vincitore_id, selezionato_per_somiglianza_visiva = seleziona_per_somiglianza_visiva(
-        seeker, [c["id"] for c in candidati], pool, n)
-    vincitore = per_id[vincitore_id]
 
     return {
         "esito": "proposta",
-        "candidato_id": vincitore["id"],
-        "final_score": vincitore["final"],
-        "bf": vincitore["bf"], "eq": vincitore["eq"], "soft": vincitore["soft"],
-        "distanza_km": vincitore["dist"],
-        "selezionato_per_somiglianza_visiva": selezionato_per_somiglianza_visiva,
-        "flag_rifiuto_esplicito": vincitore["flag_rifiuto_esplicito"],
-        "flag_asimmetria_narrativa": vincitore["flag_asimmetria_narrativa"],
+        "candidato_id": migliore["id"],
+        "final_score": migliore["final"],
+        "bf": migliore["bf"], "eq": migliore["eq"], "soft": migliore["soft"],
+        "distanza_km": migliore["dist"],
+        "selezionato_per_torneo_estetico": selezionato_per_torneo_estetico,
+        "flag_rifiuto_esplicito": migliore["flag_rifiuto_esplicito"],
+        "flag_asimmetria_narrativa": migliore["flag_asimmetria_narrativa"],
         "shortlist": [c["id"] for c in candidati[:n]],
     }
 
@@ -837,13 +833,13 @@ def load_coppie_escluse(cur):
 def build_preference_list(seeker_id, pool, cfg, coppie_escluse, gia_impegnati):
     """Lista di candidati ordinata per compatibilità dal punto di vista del
     SOLO seeker — usata come input dell'abbinamento stabile (v. sotto).
-    RF-11a/RF-11b: la selezione per somiglianza visiva sposta in cima alla
-    lista il vincitore della shortlist (dimensione_shortlist_analisi_visiva),
-    non solo in caso di quasi pareggio — v. seleziona_per_somiglianza_visiva.
+    RF-11b: il torneo estetico (applica_spareggio_estetico) può riordinare
+    il prefisso di candidati quasi pari per punteggio caratteriale.
 
-    Ritorna (lista_ordinata_di_id, motivo_se_vuota, selezionato_per_somiglianza_visiva:
-    True se il primo elemento della lista è in quella posizione grazie alla
-    somiglianza visiva e non al solo punteggio caratteriale)."""
+    Ritorna (lista_ordinata_di_id, motivo_se_vuota, selezionato_per_torneo_estetico)
+    — il booleano indica se il primo elemento della lista è in quella
+    posizione grazie al torneo estetico, e non al solo punteggio
+    caratteriale."""
     seeker = pool[seeker_id]
     if seeker["flag_revisione"]:
         return [], "revisione_umana", False
@@ -874,14 +870,11 @@ def build_preference_list(seeker_id, pool, cfg, coppie_escluse, gia_impegnati):
         return [], "nessun_candidato", False
 
     candidati.sort(key=lambda c: -c[1])
-    id_ordinati = [cid for cid, _ in candidati]
+    candidati_dict = [{"id": cid, "cand": pool[cid], "final": final} for cid, final in candidati]
+    candidati_dict, selezionato_torneo = applica_spareggio_estetico(seeker, candidati_dict, cfg)
+    id_ordinati = [c["id"] for c in candidati_dict]
 
-    n = int(cfg.get("dimensione_shortlist_analisi_visiva", 5))
-    vincitore_id, selezionato_visivo = seleziona_per_somiglianza_visiva(seeker, id_ordinati, pool, n)
-    if vincitore_id != id_ordinati[0]:
-        id_ordinati = [vincitore_id] + [cid for cid in id_ordinati if cid != vincitore_id]
-
-    return id_ordinati, None, selezionato_visivo
+    return id_ordinati, None, selezionato_torneo
 
 
 def stable_match(preference_lists):
@@ -964,12 +957,13 @@ def run_monthly_batch(conn, dry_run=True):
 
     preference_lists = {}
     motivi_vuoti = {}
-    top_selezionato_visivo = {}  # seeker_id -> True se il 1° elemento della sua lista è lì per RF-11a/b
+    top_selezionato_torneo = {}  # seeker_id -> True se il 1° elemento della sua lista è lì per il torneo estetico
     for seeker_id in pool:
-        lista, motivo, selezionato_visivo = build_preference_list(seeker_id, pool, cfg, coppie_escluse, gia_impegnati)
+        lista, motivo, selezionato_torneo = build_preference_list(
+            seeker_id, pool, cfg, coppie_escluse, gia_impegnati)
         if lista:
             preference_lists[seeker_id] = lista
-            top_selezionato_visivo[seeker_id] = selezionato_visivo
+            top_selezionato_torneo[seeker_id] = selezionato_torneo
         elif motivo:
             motivi_vuoti[seeker_id] = motivo
 
@@ -993,15 +987,16 @@ def run_monthly_batch(conn, dry_run=True):
             final_score = (cfg["weight_bigfive"] * bf + cfg["weight_eq_attaccamento"] * eq +
                            cfg["weight_narrativa"] * narrativa + cfg["weight_preferenze_soft"] * soft)
             # true se, per almeno uno dei due lati, questo partner è il suo
-            # 1° in lista grazie alla somiglianza visiva (RF-11a/b) e non al
-            # solo punteggio caratteriale
-            selezionato_visivo = (
-                (top_selezionato_visivo.get(uid) and preference_lists[uid][0] == cand_id) or
-                (top_selezionato_visivo.get(cand_id) and preference_lists[cand_id][0] == uid)
+            # 1° in lista grazie al torneo estetico (RF-11b) e non al solo
+            # punteggio caratteriale
+            selezionato_torneo = (
+                (top_selezionato_torneo.get(uid) and preference_lists[uid][0] == cand_id) or
+                (top_selezionato_torneo.get(cand_id) and preference_lists[cand_id][0] == uid)
             )
             esito = {"esito": "proposta", "seeker_id": uid, "candidato_id": cand_id, "final_score": final_score,
                       "flag_rifiuto_esplicito": flag_rifiuto_esplicito,
-                      "flag_asimmetria_narrativa": flag_asimmetria_narrativa}
+                      "flag_asimmetria_narrativa": flag_asimmetria_narrativa,
+                      "selezionato_per_torneo_estetico": selezionato_torneo}
             risultati.append(esito)
 
             if not dry_run:
@@ -1011,13 +1006,15 @@ def run_monthly_batch(conn, dry_run=True):
                 cur.execute("""
                     INSERT INTO matches (user_a_id, user_b_id, stato, final_score,
                                          data_scadenza_risposta, algoritmo_versione, algoritmo_parametri,
-                                         shortlist_candidati, selezionato_per_somiglianza_visiva,
-                                         flag_rifiuto_esplicito, flag_asimmetria_narrativa)
+                                         shortlist_candidati,
+                                         flag_rifiuto_esplicito, flag_asimmetria_narrativa,
+                                         selezionato_per_torneo_estetico)
                     VALUES (%s, %s, 'Proposto', %s, %s, %s, %s::jsonb, %s::uuid[], %s, %s, %s)
                 """, (str(uid), str(cand_id), final_score, scadenza,
                       ALGORITMO_VERSIONE, json.dumps(cfg),
-                      [str(c) for c in shortlist], bool(selezionato_visivo),
-                      bool(flag_rifiuto_esplicito), bool(flag_asimmetria_narrativa)))
+                      [str(c) for c in shortlist],
+                      bool(flag_rifiuto_esplicito), bool(flag_asimmetria_narrativa),
+                      bool(selezionato_torneo)))
         elif uid in motivi_vuoti:
             risultati.append({"esito": motivi_vuoti[uid], "seeker_id": uid})
             scritti.add(uid)

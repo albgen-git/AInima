@@ -39,7 +39,7 @@ def leggi_profilo(user_id: UUID):
                u.telefono, u.email, u.email_verificata,
                u.stato_civile, u.ha_figli,
                p.altezza_cm, p.peso_kg, p.corporatura, p.colore_capelli, p.colore_occhi,
-               p.fumo, p.alcol, p.stile_vita_sport, p.foto_profilo_url, p.foto_partner_ideale_url,
+               p.fumo, p.alcol, p.stile_vita_sport, p.foto_profilo_url,
                s.comune_residenza, s.titolo_studio, s.settore_occupazionale,
                s.fascia_reddito, s.fede_religiosa, s.importanza_religione,
                s.importanza_vicinanza_geografica, s.lingue_parlate
@@ -285,39 +285,6 @@ def carica_foto_profilo(user_id: UUID, file: UploadFile = File(...)):
     conn.close()
     return {
         "foto_profilo_url": percorso,
-        "volti_multipli_rilevati": validazione.volti_multipli if validazione is not None else False,
-        "esito_moderazione": esito_moderazione,
-    }
-
-
-@router.post("/ideal-partner-photo")
-def carica_foto_partner_ideale(user_id: UUID, file: UploadFile = File(...)):
-    """RF-08b: foto opzionale di riferimento estetico + validazione volto
-    (RF-08c) + moderazione automatica (RF-06b). Stesso trattamento della
-    foto profilo, nessun embedding calcolato qui."""
-    conn = get_conn()
-    cur = conn.cursor()
-    if not _user_exists(cur, user_id):
-        conn.close()
-        raise HTTPException(404, "Utente non trovato")
-    if _gia_sospeso(cur, user_id):
-        conn.close()
-        raise HTTPException(403, "Account sospeso per troppi tentativi di caricamento falliti. Contatta l'assistenza per riattivarlo.")
-    validazione = _valida_volto(cur, user_id, "Foto partner ideale", file)
-    blocco = _applica_esito_volto(cur, user_id, validazione)
-    conn.commit()
-    if blocco is not None:
-        conn.close()
-        codice, messaggio = blocco
-        raise HTTPException(codice, messaggio)
-    percorso = get_photo_storage(STORAGE_DIR).salva(user_id, "partner_ideale", file)
-    cur.execute("UPDATE physical_profile SET foto_partner_ideale_url = %s WHERE user_id = %s",
-                (percorso, str(user_id)))
-    esito_moderazione = _modera_foto(cur, user_id, "Foto partner ideale", percorso)
-    conn.commit()
-    conn.close()
-    return {
-        "foto_partner_ideale_url": percorso,
         "volti_multipli_rilevati": validazione.volti_multipli if validazione is not None else False,
         "esito_moderazione": esito_moderazione,
     }

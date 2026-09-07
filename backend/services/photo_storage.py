@@ -27,15 +27,15 @@ class PhotoStorage(ABC):
     @abstractmethod
     def salva(self, user_id: UUID, sottocartella: str, file: UploadFile) -> str:
         """Salva il file e ritorna il valore da scrivere in
-        foto_profilo_url/foto_partner_ideale_url — un path relativo
-        (storage locale, servito da /photos/) o un URL assoluto (R2)."""
+        foto_profilo_url — un path relativo (storage locale, servito da
+        /photos/) o un URL assoluto (R2)."""
         raise NotImplementedError
 
     @abstractmethod
     def leggi(self, riferimento: str) -> bytes:
         """Legge i byte di una foto già salvata, dato lo stesso valore
-        ritornato da salva() (e quindi già presente in
-        foto_profilo_url/foto_partner_ideale_url). Usata da
+        ritornato da salva() (e quindi già presente in foto_profilo_url).
+        Usata da
         services/face_recognition.py per il confronto RF-11b — stessa
         astrazione sia per gli utenti reali sia per i 1000 profili demo
         (anche le loro foto vivono nello stesso storage, stesso formato

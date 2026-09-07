@@ -36,9 +36,12 @@ def _profilo_psicometrico(u: dict) -> dict:
             "coscienziosita": u["coscienziosita"], "nevroticismo": u["nevroticismo"],
             "apertura": u["apertura"],
         },
+        # stile_prevalente RIMOSSO dall'input al Prompt 6 (v. CLAUDE.md
+        # 2026-09-06) — stesso motivo di personal_report.py: mai passare
+        # una categoria clinica a un modello generativo se il dato continuo
+        # sottostante basta a descrivere il pattern.
         "attaccamento": {
             "ansia": u["ansia"], "evitamento": u["evitamento"],
-            "stile_prevalente": u["stile_attaccamento"],
         },
         "eq": {
             "autoconsapevolezza": u["eq_pilastro_autoconsapevolezza"],

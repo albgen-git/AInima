@@ -191,9 +191,21 @@ def dettaglio(request: Request, user_id: str):
         tabelle[tabella] = row or {}
     conn.close()
 
+    # stile_attaccamento non è più una colonna persistita (v. CLAUDE.md
+    # 2026-09-06, revisione privacy GDPR art. 9) — unico posto dove questa
+    # etichetta può ancora comparire, calcolata al volo dai due punteggi
+    # continui, mai letta da una colonna DB.
+    from routers.psychometric import calcola_stile_attaccamento
+
+    stile_attaccamento_calcolato = calcola_stile_attaccamento(
+        tabelle["psychometric_scores"].get("ansia_score"),
+        tabelle["psychometric_scores"].get("evitamento_score"),
+    )
+
     return templates.TemplateResponse(request, "detail.html", {
         "user_id": user_id, "u": u, "tabelle": tabelle,
         "editable": EDITABLE_FIELDS, "enum_options": ENUM_OPTIONS,
+        "stile_attaccamento_calcolato": stile_attaccamento_calcolato,
     })
 
 
@@ -430,6 +442,7 @@ GRUPPI_CONFIG = [
         "soglia_minima_proposta", "soglia_area_urbana_km", "soglia_importanza_vicinanza_esclusione",
         "soglia_percentile_similarita_visiva", "soglia_similarita_visiva_minima",
         "dimensione_shortlist_analisi_visiva", "report_top_candidates", "mesi_esclusione_rimatch",
+        "soglia_pareggio_final_score",
     ]),
     ("Timeout e scadenze", [
         "recupero_accesso_grazia_ore", "otp_scadenza_minuti", "jwt_scadenza_giorni",

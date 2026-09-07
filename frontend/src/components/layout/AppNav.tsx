@@ -12,6 +12,7 @@ const TABS = [
   { href: "/rubrica", key: "rubrica" },
   { href: "/profile", key: "profile" },
   { href: "/preferences", key: "preferences" },
+  { href: "/torneo-estetico", key: "torneoEstetico" },
 ] as const;
 
 export function AppNav() {

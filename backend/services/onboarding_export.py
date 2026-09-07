@@ -100,7 +100,9 @@ def costruisci_export(cur, user_id: str) -> dict:
             "attaccamento": {
                 "ansia_score": ps.get("ansia_score"),
                 "evitamento_score": ps.get("evitamento_score"),
-                "stile_attaccamento": ps.get("stile_attaccamento"),
+                # stile_attaccamento RIMOSSO dall'export (v. CLAUDE.md
+                # 2026-09-06) — colonna non più persistita, mai stata
+                # necessaria qui: i due punteggi sopra bastano per il debug.
                 "confidenza_attaccamento_ansia": ps.get("confidenza_attaccamento_ansia"),
                 "confidenza_attaccamento_evitamento": ps.get("confidenza_attaccamento_evitamento"),
             },

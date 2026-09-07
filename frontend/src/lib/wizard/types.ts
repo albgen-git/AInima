@@ -51,7 +51,6 @@ export interface WizardState {
 
   // Step: foto
   foto_profilo_url: string | null;
-  foto_partner_ideale_url: string | null;
 
   // Step: criteri dealbreaker
   pref_genere_cercato: Genere | "";
@@ -135,7 +134,6 @@ export const initialWizardState: WizardState = {
   fede_religiosa: "",
   importanza_religione: "",
   foto_profilo_url: null,
-  foto_partner_ideale_url: null,
   pref_genere_cercato: "",
   pref_eta_min: "25",
   pref_eta_max: "45",
