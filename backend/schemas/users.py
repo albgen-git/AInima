@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from schemas.validators import valida_email_deliverable
+
 Genere = Literal["Maschile", "Femminile", "Non binario", "Altro"]
 Orientamento = Literal["Eterosessuale", "Omosessuale", "Bisessuale", "Pansessuale", "Asessuale", "Altro"]
 StatoAccount = Literal["In attesa", "Attivo", "Sospeso", "Chiuso"]
@@ -18,6 +20,8 @@ class RequestOtpRequest(BaseModel):
     richiesta per entrambi i casi, la risposta non rivela mai quale dei
     due si tratti (anti user-enumeration)."""
     email: EmailStr
+
+    _valida = field_validator("email")(valida_email_deliverable)
 
 
 class VerifyOtpRequest(BaseModel):

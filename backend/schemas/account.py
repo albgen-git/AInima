@@ -3,12 +3,16 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+
+from schemas.validators import valida_email_deliverable
 
 
 class EmailChangeRequestIn(BaseModel):
     """RF-26: richiesta di cambio email da account già autenticato."""
     email_nuova: EmailStr
+
+    _valida = field_validator("email_nuova")(valida_email_deliverable)
 
 
 class EmailChangeConfirmIn(BaseModel):
@@ -26,6 +30,8 @@ class RecoveryRequestIn(BaseModel):
     data_nascita: Optional[str] = None
     citta: Optional[str] = None
     ultime4cifre_carta: Optional[str] = None
+
+    _valida = field_validator("email_nuova_richiesta")(valida_email_deliverable)
 
 
 class RecoveryDecisionIn(BaseModel):

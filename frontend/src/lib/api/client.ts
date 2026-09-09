@@ -9,13 +9,24 @@ if (!API_BASE_URL && typeof window !== "undefined") {
 /** Messaggio leggibile a partire dal campo "detail" di una risposta FastAPI:
  * una stringa (HTTPException classica) o la lista di errori di validazione
  * Pydantic ({"loc", "msg", "type"}[]) restituita sui 422. */
+const PREFISSO_VALUE_ERROR = "Value error, ";
+
 function messaggioDaDetail(status: number, detail: unknown): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail) && detail.length > 0) {
     const primo = detail[0];
     if (primo && typeof primo === "object" && "msg" in primo) {
+      const msgGrezzo = String(primo.msg);
+      if (msgGrezzo.startsWith(PREFISSO_VALUE_ERROR)) {
+        // Messaggio scritto a mano da un field_validator (es.
+        // backend/schemas/validators.py) — già una frase completa e
+        // rivolta all'utente, a differenza degli errori Pydantic
+        // built-in (campo mancante/tipo sbagliato), che invece hanno
+        // bisogno del prefisso col nome del campo per essere capiti.
+        return msgGrezzo.slice(PREFISSO_VALUE_ERROR.length);
+      }
       const campo = Array.isArray(primo.loc) ? primo.loc.at(-1) : undefined;
-      return campo ? `${campo}: ${primo.msg}` : String(primo.msg);
+      return campo ? `${campo}: ${msgGrezzo}` : msgGrezzo;
     }
   }
   return `Richiesta fallita con stato ${status}`;
