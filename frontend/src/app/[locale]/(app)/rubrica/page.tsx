@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Alert, Card, CompatibilitySummary, PageShell } from "@/components/ui";
 import { contactsApi, matchingApi, photoUrl, type ProposalAnalysisOut, type RubricaEntry } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
@@ -10,6 +10,7 @@ import { getUserId } from "@/lib/session";
 
 export default function RubricaPage() {
   const t = useTranslations("rubrica");
+  const locale = useLocale();
   const [entries, setEntries] = useState<RubricaEntry[] | null>(null);
   const [analyses, setAnalyses] = useState<Record<string, ProposalAnalysisOut>>({});
   const { run, loading, error } = useAsyncAction(contactsApi.getRubrica);
@@ -24,7 +25,7 @@ export default function RubricaPage() {
       // chiamata per match, in parallelo (la Rubrica di solito ha pochi
       // abbinamenti, non serve un endpoint batch dedicato).
       result.forEach((entry) => {
-        matchingApi.getMatchAnalysis(userId, entry.match_id).then((analysis) => {
+        matchingApi.getMatchAnalysis(userId, entry.match_id, locale).then((analysis) => {
           setAnalyses((prev) => ({ ...prev, [entry.match_id]: analysis }));
         }).catch(() => {});
       });

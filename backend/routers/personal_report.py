@@ -16,22 +16,27 @@ router = APIRouter(prefix="/users/{user_id}/personal-report", tags=["personal-re
 
 
 @router.get("")
-def ultimo_report(user_id: UUID):
-    """RF: recupera l'ultima versione del report generata per l'utente."""
+def ultimo_report(user_id: UUID, locale: str = "it"):
+    """RF: recupera l'ultima versione del report generata per l'utente.
+    `locale`: "en" serve contenuto_report_en se presente (deroga a
+    RNF-03, v. CLAUDE.md 2026-09-09), altrimenti fallback a italiano —
+    copre sia le versioni generate prima di questo fix (colonna EN
+    sempre NULL) sia un'eventuale generazione EN vuota."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT report_id, contenuto_report, versione, data_generazione, email_inviata
+        SELECT report_id, contenuto_report, contenuto_report_en, versione, data_generazione, email_inviata
         FROM personal_report WHERE user_id = %s ORDER BY versione DESC LIMIT 1
     """, (str(user_id),))
     r = cur.fetchone()
     conn.close()
     if not r:
         return {"pronto": False}
+    testo = r["contenuto_report_en"] if locale == "en" and r["contenuto_report_en"] else r["contenuto_report"]
     return {
         "pronto": True,
         "report_id": r["report_id"],
-        "contenuto_report": r["contenuto_report"],
+        "contenuto_report": testo,
         "versione": r["versione"],
         "data_generazione": r["data_generazione"],
         "email_inviata": r["email_inviata"],

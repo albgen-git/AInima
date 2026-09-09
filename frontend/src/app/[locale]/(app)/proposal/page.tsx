@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card, CompatibilitySummary, PageShell, Spinner } from "@/components/ui";
 import {
   contactsApi,
@@ -27,6 +27,7 @@ export default function ProposalPage() {
   const tOrientation = useTranslations("onboarding.orientation");
   const tCivilStatus = useTranslations("onboarding.civilStatus");
   const tPreferences = useTranslations("onboarding.preferences");
+  const locale = useLocale();
   const userId = getUserId();
 
   const [proposal, setProposal] = useState<ProposalOut | null | undefined>(undefined);
@@ -49,7 +50,7 @@ export default function ProposalPage() {
     }
 
     if (result) {
-      matchingApi.getProposalAnalysis(userId).then(setAnalysis).catch(() => {});
+      matchingApi.getProposalAnalysis(userId, locale).then(setAnalysis).catch(() => {});
     }
   }
 

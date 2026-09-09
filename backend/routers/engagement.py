@@ -52,20 +52,31 @@ def rispondi_affinamento(user_id: UUID, item_id: UUID, payload: RispostaAffiname
 
 
 @router.get("/pillole/pendente")
-def pillola_pendente(user_id: UUID):
+def pillola_pendente(user_id: UUID, locale: str = "it"):
     """Ultima pillola inviata non ancora aperta — la card dashboard
-    "Pillola da leggere" (§1). None se non c'è nulla di pendente."""
+    "Pillola da leggere" (§1). None se non c'è nulla di pendente.
+    `locale`: deroga a RNF-03 (v. CLAUDE.md 2026-09-09), fallback IT se
+    la versione EN non è disponibile (pillole generate prima del fix)."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT pl.pillola_id, pl.titolo, pl.testo, pl.pilastro_editoriale FROM pillole_inviate_log pil
+        SELECT pl.pillola_id, pl.titolo, pl.testo, pl.titolo_en, pl.testo_en, pl.pilastro_editoriale
+        FROM pillole_inviate_log pil
         JOIN pillole_libreria pl ON pl.pillola_id = pil.pillola_id
         WHERE pil.user_id = %s AND pil.aperta = FALSE
         ORDER BY pil.data_invio DESC LIMIT 1
     """, (str(user_id),))
     riga = cur.fetchone()
     conn.close()
-    return riga
+    if not riga:
+        return None
+    usa_en = locale == "en" and riga["titolo_en"] and riga["testo_en"]
+    return {
+        "pillola_id": riga["pillola_id"],
+        "titolo": riga["titolo_en"] if usa_en else riga["titolo"],
+        "testo": riga["testo_en"] if usa_en else riga["testo"],
+        "pilastro_editoriale": riga["pilastro_editoriale"],
+    }
 
 
 @router.post("/pillole/{pillola_id}/aperta")

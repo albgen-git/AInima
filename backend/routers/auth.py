@@ -328,7 +328,7 @@ def _prossima_data_ciclo(giorno_esecuzione: int) -> date:
 
 
 @router.get("/{user_id}/dashboard")
-def dashboard(user_id: UUID):
+def dashboard(user_id: UUID, locale: str = "it"):
     """Dati di riepilogo per la home dell'utente: stato account, stato
     abbonamento, prossima data prevista del ciclo di matching mensile,
     presenza di una proposta attiva. Campi aggiunti su richiesta esplicita
@@ -358,7 +358,7 @@ def dashboard(user_id: UUID):
     # 2 domande di affinamento pendenti, 3 pillola da leggere, mostrate
     # impilate se coesistono, mai un unico blocco che le confonde (lasciato
     # al frontend, qui solo il dato grezzo).
-    stato_engagement = engagement.stato_dashboard_engagement(cur, user_id)
+    stato_engagement = engagement.stato_dashboard_engagement(cur, user_id, locale)
     conn.close()
 
     return {

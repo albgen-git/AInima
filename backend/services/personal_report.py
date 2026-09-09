@@ -93,7 +93,7 @@ def _narrativa_utente(cur, user_id: UUID) -> str | None:
     return "\n".join(parti)
 
 
-def genera_e_salva(conn, cur, user_id: UUID) -> str | None:
+def genera_e_salva(conn, cur, user_id: UUID) -> dict | None:
     """RF-28/30b: genera una nuova versione del report (copre sia il primo
     completamento sia una rigenerazione dopo l'aggiornamento di un test) e
     tenta l'invio email. Va chiamato DOPO che l'update dei punteggi
@@ -104,14 +104,17 @@ def genera_e_salva(conn, cur, user_id: UUID) -> str | None:
     routers/psychometric.py): un fallimento di generazione qui non deve
     propagarsi come errore della submission del test.
 
-    Ritorna il testo generato, o None se i 4 test non sono ancora tutti
-    completi (nessuna riga scritta in quel caso)."""
+    Ritorna {"it": ..., "en": ...} (deroga puntuale a RNF-03, v. CLAUDE.md
+    2026-09-09 — generate nella stessa chiamata LLM), o None se i 4 test
+    non sono ancora tutti completi (nessuna riga scritta in quel caso).
+    L'email di notifica resta solo in italiano (stesso trattamento già in
+    uso per il resto delle email transazionali del progetto)."""
     if not quattro_test_completi(cur, user_id):
         return None
 
     punteggi = _assembla_punteggi(cur, user_id)
     narrativa = _narrativa_utente(cur, user_id)
-    testo = llm_pipeline.genera_report_prontezza_relazionale(punteggi, narrativa)
+    testi = llm_pipeline.genera_report_prontezza_relazionale(punteggi, narrativa)
 
     cur.execute(
         "SELECT COALESCE(MAX(versione), 0) + 1 AS prossima FROM personal_report WHERE user_id = %s",
@@ -119,14 +122,14 @@ def genera_e_salva(conn, cur, user_id: UUID) -> str | None:
     )
     versione = cur.fetchone()["prossima"]
     cur.execute("""
-        INSERT INTO personal_report (user_id, contenuto_report, versione)
-        VALUES (%s, %s, %s) RETURNING report_id
-    """, (str(user_id), testo, versione))
+        INSERT INTO personal_report (user_id, contenuto_report, contenuto_report_en, versione)
+        VALUES (%s, %s, %s, %s) RETURNING report_id
+    """, (str(user_id), testi["it"], testi["en"], versione))
     report_id = cur.fetchone()["report_id"]
     conn.commit()
 
-    _tenta_invio_email(conn, cur, user_id, report_id, testo)
-    return testo
+    _tenta_invio_email(conn, cur, user_id, report_id, testi["it"])
+    return testi
 
 
 def _tenta_invio_email(conn, cur, user_id: UUID, report_id, testo: str):

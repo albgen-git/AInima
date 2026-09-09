@@ -137,13 +137,22 @@ def proposta_corrente(user_id: UUID):
 # mai un'etichetta. Un'unica frase condivisa per entrambi i flag (asimmetria
 # narrativa + rifiuto esplicito nelle liste) — separarle rischierebbe di
 # sembrare un elenco di allarmi invece di un invito generico al dialogo.
-SPUNTO_ATTENZIONE_COSTRUTTIVO = (
-    "Su alcuni valori, stile di vita o abitudini potreste avere punti di vista "
-    "piuttosto diversi — potrebbe valere la pena parlarne apertamente appena vi conoscerete."
-)
+SPUNTO_ATTENZIONE_COSTRUTTIVO = {
+    "it": (
+        "Su alcuni valori, stile di vita o abitudini potreste avere punti di vista "
+        "piuttosto diversi — potrebbe valere la pena parlarne apertamente appena vi conoscerete."
+    ),
+    # Deroga a RNF-03 (v. CLAUDE.md 2026-09-09) — testo fisso, non
+    # generato dall'LLM, quindi tradotto qui una volta sola invece che
+    # richiedere una seconda lingua ad ogni chiamata.
+    "en": (
+        "On some values, lifestyle, or habits you might see things quite "
+        "differently — it could be worth talking about it openly once you get to know each other."
+    ),
+}
 
 
-def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag_rifiuto: bool, flag_asimmetria: bool):
+def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag_rifiuto: bool, flag_asimmetria: bool, locale: str = "it"):
     """Nucleo condiviso tra /proposal/analysis (proposta attiva corrente)
     e /matches/{match_id}/analysis (qualunque match, incluso Rubrica) —
     stessa aritmetica sul Test Profilo Relazionale, stessa riformulazione
@@ -186,13 +195,20 @@ def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag
         return {"pronta": False, "analisi": None}
 
     punteggio, _, _ = matching_engine.punteggio_narrativo_strutturato(dict(righe[user_id]), dict(righe[altro_id]))
-    spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO if (flag_rifiuto or flag_asimmetria) else None
+    lingua = locale if locale in ("it", "en") else "it"
+    spunto = SPUNTO_ATTENZIONE_COSTRUTTIVO[lingua] if (flag_rifiuto or flag_asimmetria) else None
 
-    sintesi = None
+    sintesi_bilingue = None
     try:
-        sintesi = couple_analysis.genera_e_salva(conn, cur, match_id, user_id, altro_id)
+        sintesi_bilingue = couple_analysis.genera_e_salva(conn, cur, match_id, user_id, altro_id)
     except Exception as e:
         print(f"[ERRORE] generazione sintesi caratteriale coppia per match {match_id} fallita: {e}")
+
+    # Fallback a IT se la lingua richiesta non è disponibile (sintesi
+    # generata prima della deroga a RNF-03, v. CLAUDE.md 2026-09-09).
+    sintesi = None
+    if sintesi_bilingue:
+        sintesi = sintesi_bilingue.get(lingua) or sintesi_bilingue.get("it")
 
     return {"pronta": True, "analisi": {
         "punteggio_narrativo_strutturato": punteggio,
@@ -202,7 +218,7 @@ def _calcola_analisi(conn, cur, match_id: str, user_id: str, altro_id: str, flag
 
 
 @router.get("/users/{user_id}/proposal/analysis")
-def analisi_proposta_corrente(user_id: UUID):
+def analisi_proposta_corrente(user_id: UUID, locale: str = "it"):
     """Coerenza narrativa della proposta del ciclo corrente — aritmetica
     diretta sul Test Profilo Relazionale (v. nota su /affinity sopra),
     pensata per la schermata "Proposta di match".
@@ -236,13 +252,13 @@ def analisi_proposta_corrente(user_id: UUID):
         raise HTTPException(404, "Nessuna proposta attiva per questo utente")
 
     risultato = _calcola_analisi(conn, cur, str(m["match_id"]), str(user_id), str(m["altro_id"]),
-                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
+                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"], locale)
     conn.close()
     return risultato
 
 
 @router.get("/users/{user_id}/matches/{match_id}/analysis")
-def analisi_match(user_id: UUID, match_id: UUID):
+def analisi_match(user_id: UUID, match_id: UUID, locale: str = "it"):
     """Come /proposal/analysis ma per UN match specifico invece che "la
     proposta attiva corrente" — usato dalla Rubrica (RF-22b), dove più
     abbinamenti conclusi possono coesistere nel tempo. Nessun vincolo di
@@ -266,7 +282,7 @@ def analisi_match(user_id: UUID, match_id: UUID):
         raise HTTPException(403, "Questo match non appartiene all'utente indicato")
 
     risultato = _calcola_analisi(conn, cur, str(match_id), str(user_id), str(m["altro_id"]),
-                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"])
+                                  m["flag_rifiuto_esplicito"], m["flag_asimmetria_narrativa"], locale)
     conn.close()
     return risultato
 

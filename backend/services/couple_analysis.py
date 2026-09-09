@@ -101,7 +101,7 @@ def _assembla_punteggi_coppia(pool: dict, id_a: str, id_b: str, cfg: dict) -> di
     }
 
 
-def genera_e_salva(conn, cur, match_id: str, id_a: str, id_b: str) -> str | None:
+def genera_e_salva(conn, cur, match_id: str, id_a: str, id_b: str) -> dict | None:
     """RF-12: genera la sintesi UNA SOLA volta per match (mai una per
     utente — v. Documento_Requisiti_v1.md). Se già presente, ritorna il
     valore salvato senza rigenerare né chiamare l'LLM di nuovo. Ritorna
@@ -109,28 +109,38 @@ def genera_e_salva(conn, cur, match_id: str, id_a: str, id_b: str) -> str | None
     pool di matching attivo (caso limite, non dovrebbe succedere per un
     match già creato).
 
+    Ritorna SEMPRE un dict {"it": ..., "en": ...} (deroga puntuale a
+    RNF-03, v. CLAUDE.md 2026-09-09) — "en" può essere None/vuoto per le
+    righe generate prima di questo fix, il chiamante (routers/matching.py)
+    sceglie quale servire in base alla lingua richiesta, con fallback a
+    "it" se la versione inglese non è disponibile.
+
     Va chiamato DOPO che il match è già stato committato — un fallimento
     qui (LLM lento/non disponibile) non deve mai bloccare la creazione o
     la visualizzazione della proposta. Il chiamante (routers/matching.py)
     è responsabile del try/except, stesso principio già applicato al
     report personale RF-28 in services/personal_report.py."""
-    cur.execute("SELECT analisi_caratteriale_coppia FROM matches WHERE match_id = %s", (str(match_id),))
+    cur.execute(
+        "SELECT analisi_caratteriale_coppia, analisi_caratteriale_coppia_en FROM matches WHERE match_id = %s",
+        (str(match_id),),
+    )
     riga = cur.fetchone()
     if riga is None:
         return None
     if riga["analisi_caratteriale_coppia"] is not None:
-        return riga["analisi_caratteriale_coppia"]
+        return {"it": riga["analisi_caratteriale_coppia"], "en": riga["analisi_caratteriale_coppia_en"]}
 
     pool = matching_engine.load_pool(cur)
     if id_a not in pool or id_b not in pool:
         return None
     cfg = matching_engine.load_config_floats(cur)
     punteggi = _assembla_punteggi_coppia(pool, id_a, id_b, cfg)
-    testo = llm_pipeline.genera_analisi_caratteriale_coppia(punteggi)
+    testi = llm_pipeline.genera_analisi_caratteriale_coppia(punteggi)
 
     cur.execute(
-        "UPDATE matches SET analisi_caratteriale_coppia = %s WHERE match_id = %s AND analisi_caratteriale_coppia IS NULL",
-        (testo, str(match_id)),
+        """UPDATE matches SET analisi_caratteriale_coppia = %s, analisi_caratteriale_coppia_en = %s
+           WHERE match_id = %s AND analisi_caratteriale_coppia IS NULL""",
+        (testi["it"], testi["en"], str(match_id)),
     )
     conn.commit()
-    return testo
+    return testi

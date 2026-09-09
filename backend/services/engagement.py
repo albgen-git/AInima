@@ -170,28 +170,43 @@ def aggiungi_a_coda_email(cur, user_id, tipo_contenuto, contenuto_id):
     """, (str(user_id), tipo_contenuto, str(contenuto_id)))
 
 
-def stato_dashboard_engagement(cur, user_id):
+def stato_dashboard_engagement(cur, user_id, locale="it"):
     """Stati §1 (esclusa "Proposta di abbinamento attiva", già gestita da
-    GET /auth/{id}/dashboard — priorità 1, non duplicata qui)."""
+    GET /auth/{id}/dashboard — priorità 1, non duplicata qui).
+
+    `locale`: deroga puntuale a RNF-03 (v. CLAUDE.md 2026-09-09) — sceglie
+    testo_en/titolo_en+testo_en quando disponibili, altrimenti fallback a
+    italiano (copre sia le pillole generate prima di questo fix sia un
+    eventuale campo EN vuoto)."""
     cur.execute("""
-        SELECT dp.testo_it FROM domande_affinamento_log dl
+        SELECT dp.testo_it, dp.testo_en FROM domande_affinamento_log dl
         JOIN domande_affinamento_pool dp ON dp.item_id = dl.item_id
         WHERE dl.user_id = %s AND dl.risposta IS NULL
         ORDER BY dl.data_posta
     """, (str(user_id),))
-    domande_pendenti = [r["testo_it"] for r in cur.fetchall()]
+    domande_pendenti = [
+        r["testo_en"] if locale == "en" and r["testo_en"] else r["testo_it"] for r in cur.fetchall()
+    ]
 
     cur.execute("""
-        SELECT pl.pillola_id, pl.titolo, pl.testo FROM pillole_inviate_log pil
+        SELECT pl.pillola_id, pl.titolo, pl.testo, pl.titolo_en, pl.testo_en FROM pillole_inviate_log pil
         JOIN pillole_libreria pl ON pl.pillola_id = pil.pillola_id
         WHERE pil.user_id = %s AND pil.aperta = FALSE
         ORDER BY pil.data_invio DESC LIMIT 1
     """, (str(user_id),))
-    pillola_pendente = cur.fetchone()
+    riga = cur.fetchone()
+    pillola_pendente = None
+    if riga:
+        usa_en = locale == "en" and riga["titolo_en"] and riga["testo_en"]
+        pillola_pendente = {
+            "pillola_id": riga["pillola_id"],
+            "titolo": riga["titolo_en"] if usa_en else riga["titolo"],
+            "testo": riga["testo_en"] if usa_en else riga["testo"],
+        }
 
     return {
         "domande_pendenti": domande_pendenti,
-        "pillola_pendente": dict(pillola_pendente) if pillola_pendente else None,
+        "pillola_pendente": pillola_pendente,
     }
 
 

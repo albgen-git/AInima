@@ -125,10 +125,21 @@ QUESTA pillola, non il nome del pilastro o della tecnica.
 - Linguaggio neutro e internazionale.
 - Va bene essere un po' spiazzanti o giocosi quando il tema lo permette.
 
+## Due lingue, stesso contenuto
+Scrivi la pillola in ENTRAMBE le lingue — stesso pilastro, stessa
+tecnica, stesso tema/osservazione, la STESSA pillola. Non una traduzione
+parola per parola: due testi scritti nativamente, ciascuno idiomatico
+nella propria lingua, che dicono la stessa cosa. Le stesse regole di
+tono/frasi vietate sopra si applicano a ENTRAMBE le versioni (l'elenco
+delle frasi vietate è in italiano — evita l'equivalente naturale in
+inglese, non una traduzione letterale della lista).
+
 ## Formato di output (JSON, un solo oggetto, SOLO queste chiavi)
 {
-  "titolo": "breve, 4-8 parole",
-  "testo": "40-70 parole",
+  "titolo": "breve, 4-8 parole, in italiano",
+  "testo": "40-70 parole, in italiano",
+  "titolo_en": "stesso titolo, in inglese, 4-8 parole",
+  "testo_en": "stesso testo, in inglese, 40-70 parole",
   "pilastro": "intelligenza_emotiva | comunicazione_conflitto | cultura_valori | preparazione_matrimonio",
   "contesto": "attesa_generale",
   "tecnica_usata": "una delle 6 sopra (usa esattamente lo slug, es. domanda_diretta_scomoda)",
@@ -217,7 +228,7 @@ def _genera_candidato(storico: list[dict]) -> dict:
 def _valida(candidato: dict, storico: list[dict]) -> str | None:
     """Ritorna None se il candidato passa tutti i controlli (§3 del
     documento), altrimenti una stringa col motivo dello scarto."""
-    for campo in ("titolo", "testo", "pilastro", "contesto", "tecnica_usata", "tema_centrale"):
+    for campo in ("titolo", "testo", "titolo_en", "testo_en", "pilastro", "contesto", "tecnica_usata", "tema_centrale"):
         if not candidato.get(campo):
             return f"campo mancante: {campo}"
     if candidato["pilastro"] not in PILASTRO_DB:
@@ -230,6 +241,10 @@ def _valida(candidato: dict, storico: list[dict]) -> str | None:
     n_parole = len(candidato["testo"].split())
     if not (30 <= n_parole <= 90):
         return f"lunghezza fuori range: {n_parole} parole"
+
+    n_parole_en = len(candidato["testo_en"].split())
+    if not (30 <= n_parole_en <= 90):
+        return f"lunghezza (EN) fuori range: {n_parole_en} parole"
 
     testo_normalizzato = candidato["testo"].strip().lower()
     for prefisso in FRASI_VIETATE_PREFISSO:
@@ -283,10 +298,11 @@ def genera_pillola_del_giorno(cur) -> dict:
             continue
 
         cur.execute("""
-            INSERT INTO pillole_libreria (titolo, testo, pilastro_editoriale, contesto_trigger, tecnica_usata, tema_centrale)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING pillola_id
-        """, (candidato["titolo"], candidato["testo"], PILASTRO_DB[candidato["pilastro"]],
-              CONTESTO_DB[candidato["contesto"]], candidato["tecnica_usata"], candidato["tema_centrale"]))
+            INSERT INTO pillole_libreria (titolo, testo, titolo_en, testo_en, pilastro_editoriale, contesto_trigger, tecnica_usata, tema_centrale)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING pillola_id
+        """, (candidato["titolo"], candidato["testo"], candidato["titolo_en"], candidato["testo_en"],
+              PILASTRO_DB[candidato["pilastro"]], CONTESTO_DB[candidato["contesto"]],
+              candidato["tecnica_usata"], candidato["tema_centrale"]))
         pillola_id = cur.fetchone()["pillola_id"]
         cur.execute("""
             INSERT INTO pillole_generazione_log (pillola_id, tentativi, esito, dettaglio_scarti)

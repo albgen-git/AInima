@@ -12,12 +12,12 @@ export const matchingApi = {
     apiClient.get<ProposalOut | null>(`/users/${userId}/proposal`),
 
   /** Analisi caratteriale di pregi/difetti della coppia per la proposta attiva — mai espone l'altro user_id. */
-  getProposalAnalysis: (userId: string) =>
-    apiClient.get<ProposalAnalysisOut>(`/users/${userId}/proposal/analysis`),
+  getProposalAnalysis: (userId: string, locale: string = "it") =>
+    apiClient.get<ProposalAnalysisOut>(`/users/${userId}/proposal/analysis?locale=${locale}`),
 
   /** Come sopra ma per UN match specifico (qualunque stato) — usata dalla Rubrica, dove più abbinamenti coesistono. */
-  getMatchAnalysis: (userId: string, matchId: string) =>
-    apiClient.get<ProposalAnalysisOut>(`/users/${userId}/matches/${matchId}/analysis`),
+  getMatchAnalysis: (userId: string, matchId: string, locale: string = "it") =>
+    apiClient.get<ProposalAnalysisOut>(`/users/${userId}/matches/${matchId}/analysis?locale=${locale}`),
 
   decideMatch: (userId: string, matchId: string, payload: MatchDecision) =>
     apiClient.post<MatchDecisionResponse>(

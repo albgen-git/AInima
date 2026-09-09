@@ -445,6 +445,12 @@ CREATE TABLE IF NOT EXISTS matches (
     -- (non una per utente) — generata una volta e mostrata identica a
     -- entrambe le parti, mai rigenerata ad ogni GET.
     analisi_caratteriale_coppia          TEXT,
+    -- Deroga puntuale a RNF-03 (v. CLAUDE.md 2026-09-09, segnalato
+    -- dall'utente: contenuto misto IT/EN nella UI in inglese) — versione
+    -- inglese generata nella STESSA chiamata LLM (mai una traduzione
+    -- separata a posteriori), per garantire le stesse citazioni/fatti
+    -- nelle due lingue. NULL per le righe generate prima di questo fix.
+    analisi_caratteriale_coppia_en       TEXT,
     -- Torneo estetico (v. CLAUDE.md 2026-09-06/07): true se lo spareggio
     -- secondario tra candidati quasi pari per FINAL_SCORE ha davvero
     -- cambiato l'esito rispetto al solo punteggio caratteriale — dal
@@ -585,6 +591,11 @@ CREATE TABLE IF NOT EXISTS personal_report (
     report_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id               UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     contenuto_report       TEXT NOT NULL,
+    -- Deroga puntuale a RNF-03 (v. CLAUDE.md 2026-09-09) — stessa nota di
+    -- matches.analisi_caratteriale_coppia_en: generata nella STESSA
+    -- chiamata LLM, mai una traduzione separata. NULL per le versioni
+    -- generate prima di questo fix.
+    contenuto_report_en      TEXT,
     data_generazione        TIMESTAMPTZ NOT NULL DEFAULT now(),
     email_inviata            BOOLEAN NOT NULL DEFAULT FALSE,
     data_invio_email          TIMESTAMPTZ,
@@ -639,6 +650,12 @@ CREATE TABLE IF NOT EXISTS pillole_libreria (
     pillola_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     titolo               VARCHAR(150) NOT NULL,
     testo                 TEXT NOT NULL,
+    -- Deroga puntuale a RNF-03 (v. CLAUDE.md 2026-09-09) — stessa nota di
+    -- matches.analisi_caratteriale_coppia_en: generate nella STESSA
+    -- chiamata LLM di titolo/testo, mai una traduzione separata. NULL per
+    -- le pillole generate prima di questo fix.
+    titolo_en             VARCHAR(150),
+    testo_en                TEXT,
     -- 'Intelligenza Emotiva' | 'Comunicazione & Conflitto' | 'Cultura e Valori' | 'Preparazione al Matrimonio'
     pilastro_editoriale    VARCHAR(40) NOT NULL,
     -- 'Attesa generale' | 'Post-match confermato' | 'Post-rifiuto'

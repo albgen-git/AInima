@@ -26,6 +26,6 @@ export const authApi = {
   getOnboardingStatus: (userId: string) =>
     apiClient.get<OnboardingStatus>(`/auth/${userId}/status`),
 
-  getDashboard: (userId: string) =>
-    apiClient.get<DashboardOut>(`/auth/${userId}/dashboard`),
+  getDashboard: (userId: string, locale: string = "it") =>
+    apiClient.get<DashboardOut>(`/auth/${userId}/dashboard?locale=${locale}`),
 };

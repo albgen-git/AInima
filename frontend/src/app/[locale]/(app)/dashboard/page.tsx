@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card, PageShell } from "@/components/ui";
 import { AffinamentoCard } from "@/components/dashboard/AffinamentoCard";
 import { PillolaCard } from "@/components/dashboard/PillolaCard";
@@ -14,6 +14,7 @@ import { Link } from "@/i18n/navigation";
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
+  const locale = useLocale();
   const [data, setData] = useState<DashboardOut | null>(null);
   const [report, setReport] = useState<PersonalReportOut | null>(null);
   const { run, loading, error } = useAsyncAction(authApi.getDashboard);
@@ -22,10 +23,10 @@ export default function DashboardPage() {
 
   function ricarica() {
     if (!userId) return;
-    run(userId).then((result) => {
+    run(userId, locale).then((result) => {
       if (result) setData(result);
     });
-    runReport(userId).then((result) => {
+    runReport(userId, locale).then((result) => {
       if (result) setReport(result);
     });
   }
