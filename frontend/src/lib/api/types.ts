@@ -159,6 +159,8 @@ export interface ProfileOut {
   stile_vita_sport: string | null;
   foto_profilo_url: string | null;
   comune_residenza: string | null;
+  /** RF-06c: codice ISO 3166-1 alpha-2, distinto dal comune sopra — v. lib/countries.ts. */
+  paese_residenza: string | null;
   titolo_studio: string | null;
   settore_occupazionale: string | null;
   fascia_reddito: string | null;
@@ -189,6 +191,7 @@ export interface ProfileUpdate {
   alcol?: boolean | null;
   stile_vita_sport?: string | null;
   comune_residenza?: string | null;
+  paese_residenza?: string | null;
   lat?: number | null;
   lon?: number | null;
   titolo_studio?: string | null;

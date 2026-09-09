@@ -135,6 +135,15 @@ CREATE TABLE IF NOT EXISTS physical_profile (
 CREATE TABLE IF NOT EXISTS socio_profile (
     user_id                 UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     comune_residenza        VARCHAR(100),
+    -- RF-06c (v. CLAUDE.md 2026-09-09): paese di residenza REALE
+    -- dell'utente, distinto dal comune sopra — codice ISO 3166-1
+    -- alpha-2 (es. 'IT', 'AE'), mai un'abbreviazione ad hoc. Nullable
+    -- come il resto del profilo socio-economico (compilato
+    -- progressivamente nel wizard, v. RF-09) — obbligatorio solo a
+    -- livello applicativo (validazione + UI), non con un vincolo NOT
+    -- NULL qui, per non rompere le righe già esistenti create prima di
+    -- questo campo.
+    paese_residenza          VARCHAR(2),
     coordinate_gps           POINT,
     titolo_studio            VARCHAR(50),
     settore_occupazionale    VARCHAR(60),

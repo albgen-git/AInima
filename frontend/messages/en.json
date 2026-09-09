@@ -172,6 +172,8 @@
       "stileVitaSport": "Physical activity",
       "stileVitaSportPlaceholder": "E.g. running twice a week, no sport, gym...",
       "comuneResidenza": "City of residence",
+      "paeseResidenza": "Country of residence",
+      "paeseResidenzaPlaceholder": "Select a country",
       "titoloStudio": "Education level",
       "titoloStudioOptions": {
         "Diploma": "High school diploma",

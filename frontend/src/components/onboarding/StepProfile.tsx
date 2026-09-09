@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent } from "react";
-import { useTranslations } from "next-intl";
+import { FormEvent, useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Alert, Button, Card, SelectField, TextField } from "@/components/ui";
 import { profileApi } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
+import { COUNTRIES } from "@/lib/countries";
 import type { StepProps } from "@/lib/wizard/types";
 
 const CORPORATURA_VALUES = ["Snella", "Atletica", "Media", "Robusta", "Curvy"] as const;
@@ -52,7 +53,17 @@ function YesNoToggle({
 export function StepProfile({ state, update, onNext, onBack }: StepProps) {
   const t = useTranslations("onboarding.profile");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const { run, loading, error } = useAsyncAction(profileApi.updateProfile);
+
+  // RF-06c: nome del paese tradotto in base alla lingua dell'interfaccia
+  // (RNF-03) — il valore inviato/salvato resta sempre il codice ISO.
+  const paesiOrdinati = useMemo(() => {
+    const collator = new Intl.Collator(locale);
+    return [...COUNTRIES].sort((a, b) =>
+      collator.compare(locale === "it" ? a.nameIt : a.nameEn, locale === "it" ? b.nameIt : b.nameEn)
+    );
+  }, [locale]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -67,6 +78,7 @@ export function StepProfile({ state, update, onNext, onBack }: StepProps) {
       alcol: state.alcol,
       stile_vita_sport: state.stile_vita_sport || null,
       comune_residenza: state.comune_residenza || null,
+      paese_residenza: state.paese_residenza || null,
       titolo_studio: state.titolo_studio || null,
       settore_occupazionale: state.settore_occupazionale || null,
       fascia_reddito: state.fascia_reddito || null,
@@ -177,6 +189,22 @@ export function StepProfile({ state, update, onNext, onBack }: StepProps) {
           />
 
           <SelectField
+            label={t("paeseResidenza")}
+            required
+            value={state.paese_residenza}
+            onChange={(e) => update("paese_residenza", e.target.value)}
+          >
+            <option value="" disabled>
+              {t("paeseResidenzaPlaceholder")}
+            </option>
+            {paesiOrdinati.map((paese) => (
+              <option key={paese.code} value={paese.code}>
+                {locale === "it" ? paese.nameIt : paese.nameEn}
+              </option>
+            ))}
+          </SelectField>
+
+          <SelectField
             label={t("titoloStudio")}
             value={state.titolo_studio}
             onChange={(e) => update("titolo_studio", e.target.value)}
@@ -234,7 +262,7 @@ export function StepProfile({ state, update, onNext, onBack }: StepProps) {
           <Button variant="secondary" type="button" onClick={onBack}>
             {tCommon("back")}
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || !state.paese_residenza}>
             {loading ? tCommon("loading") : tCommon("continue")}
           </Button>
         </div>

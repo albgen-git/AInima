@@ -172,6 +172,8 @@
       "stileVitaSport": "Attività sportiva",
       "stileVitaSportPlaceholder": "Es. corsa 2 volte a settimana, nessuno sport, palestra...",
       "comuneResidenza": "Città di residenza",
+      "paeseResidenza": "Paese di residenza",
+      "paeseResidenzaPlaceholder": "Seleziona un paese",
       "titoloStudio": "Titolo di studio",
       "titoloStudioOptions": {
         "Diploma": "Diploma",

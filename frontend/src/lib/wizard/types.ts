@@ -43,6 +43,7 @@ export interface WizardState {
   alcol: boolean | null;
   stile_vita_sport: string;
   comune_residenza: string;
+  paese_residenza: string;
   titolo_studio: string;
   settore_occupazionale: string;
   fascia_reddito: string;
@@ -128,6 +129,7 @@ export const initialWizardState: WizardState = {
   alcol: null,
   stile_vita_sport: "",
   comune_residenza: "",
+  paese_residenza: "",
   titolo_studio: "",
   settore_occupazionale: "",
   fascia_reddito: "",

@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Alert, Badge, Button, Card, PageShell, SelectField, TextField } from "@/components/ui";
 import { profileApi, type ProfileOut, type ProfileUpdate } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
+import { COUNTRIES } from "@/lib/countries";
 
 const CORPORATURA_VALUES = ["Snella", "Atletica", "Media", "Robusta", "Curvy"] as const;
 const TITOLO_STUDIO_VALUES = [
@@ -22,12 +23,20 @@ export default function ProfileEditPage() {
   const tProfile = useTranslations("onboarding.profile");
   const tCivil = useTranslations("onboarding.civilStatus");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const userId = getUserId();
 
   const [profile, setProfile] = useState<ProfileOut | null>(null);
   const [saved, setSaved] = useState(false);
   const loadAction = useAsyncAction(profileApi.getProfile);
   const saveAction = useAsyncAction(profileApi.updateProfile);
+
+  const paesiOrdinati = useMemo(() => {
+    const collator = new Intl.Collator(locale);
+    return [...COUNTRIES].sort((a, b) =>
+      collator.compare(locale === "it" ? a.nameIt : a.nameEn, locale === "it" ? b.nameIt : b.nameEn)
+    );
+  }, [locale]);
 
   useEffect(() => {
     if (!userId) return;
@@ -60,6 +69,7 @@ export default function ProfileEditPage() {
       alcol: profile.alcol,
       stile_vita_sport: profile.stile_vita_sport,
       comune_residenza: profile.comune_residenza,
+      paese_residenza: profile.paese_residenza,
       titolo_studio: profile.titolo_studio,
       settore_occupazionale: profile.settore_occupazionale,
       fascia_reddito: profile.fascia_reddito,
@@ -185,6 +195,21 @@ export default function ProfileEditPage() {
               value={profile.comune_residenza ?? ""}
               onChange={(e) => update("comune_residenza", e.target.value)}
             />
+
+            <SelectField
+              label={tProfile("paeseResidenza")}
+              value={profile.paese_residenza ?? ""}
+              onChange={(e) => update("paese_residenza", e.target.value)}
+            >
+              <option value="" disabled>
+                {tProfile("paeseResidenzaPlaceholder")}
+              </option>
+              {paesiOrdinati.map((paese) => (
+                <option key={paese.code} value={paese.code}>
+                  {locale === "it" ? paese.nameIt : paese.nameEn}
+                </option>
+              ))}
+            </SelectField>
 
             <SelectField
               label={tProfile("titoloStudio")}

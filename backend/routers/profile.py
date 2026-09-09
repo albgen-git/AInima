@@ -40,7 +40,7 @@ def leggi_profilo(user_id: UUID):
                u.stato_civile, u.ha_figli,
                p.altezza_cm, p.peso_kg, p.corporatura, p.colore_capelli, p.colore_occhi,
                p.fumo, p.alcol, p.stile_vita_sport, p.foto_profilo_url,
-               s.comune_residenza, s.titolo_studio, s.settore_occupazionale,
+               s.comune_residenza, s.paese_residenza, s.titolo_studio, s.settore_occupazionale,
                s.fascia_reddito, s.fede_religiosa, s.importanza_religione,
                s.importanza_vicinanza_geografica, s.lingue_parlate
         FROM users u
@@ -100,9 +100,9 @@ def aggiorna_profilo(user_id: UUID, payload: ProfileUpdate):
         cur.execute(f"UPDATE physical_profile SET {set_clause} WHERE user_id = %s",
                     (*campi_fisici.values(), str(user_id)))
 
-    campi_socio = {k: dati[k] for k in ("comune_residenza", "titolo_studio", "settore_occupazionale",
-                                         "fascia_reddito", "fede_religiosa", "importanza_religione",
-                                         "lingue_parlate") if k in dati}
+    campi_socio = {k: dati[k] for k in ("comune_residenza", "paese_residenza", "titolo_studio",
+                                         "settore_occupazionale", "fascia_reddito", "fede_religiosa",
+                                         "importanza_religione", "lingue_parlate") if k in dati}
     if campi_socio:
         set_clause = ", ".join(f"{k} = %s" for k in campi_socio)
         cur.execute(f"UPDATE socio_profile SET {set_clause} WHERE user_id = %s",

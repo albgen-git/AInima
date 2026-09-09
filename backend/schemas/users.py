@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from schemas.validators import valida_email_deliverable
+from schemas.validators import valida_email_deliverable, valida_paese_residenza
 
 Genere = Literal["Maschile", "Femminile", "Non binario", "Altro"]
 Orientamento = Literal["Eterosessuale", "Omosessuale", "Bisessuale", "Pansessuale", "Asessuale", "Altro"]
@@ -71,6 +71,11 @@ class ProfileUpdate(BaseModel):
     alcol: Optional[bool] = None
     stile_vita_sport: Optional[str] = None
     comune_residenza: Optional[str] = None
+    # RF-06c/§7.3: paese di residenza REALE, distinto dal comune sopra —
+    # codice ISO 3166-1 alpha-2, scelto da un dropdown lato frontend
+    # (frontend/src/lib/countries.ts) — validato qui contro la stessa
+    # whitelist (v. schemas/validators.py), non solo il formato.
+    paese_residenza: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
     titolo_studio: Optional[str] = None
@@ -96,6 +101,8 @@ class ProfileUpdate(BaseModel):
                 "particolari (art. 9 GDPR) — non può essere revocato inviando 'false' qui"
             )
         return v
+
+    _valida_paese = field_validator("paese_residenza")(valida_paese_residenza)
 
 
 class UserOut(BaseModel):
