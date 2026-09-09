@@ -35,15 +35,6 @@ SOGLIE = {
     "Ricalcolo profilo": "cadenza_giorni_ricalcolo_profilo",
 }
 
-# Testo placeholder esplicito (v. CLAUDE.md — decisione presa: la libreria
-# di domande vere non esiste ancora, ma la tabella/il meccanismo vanno
-# comunque esercitati end-to-end; nessun codice legge/mostra ancora
-# questo campo a un utente, quindi un placeholder marcato come tale è
-# sicuro). Da sostituire quando il flusso completo (RF-32/32b) sarà
-# definito insieme al contenuto reale delle domande.
-DOMANDA_PLACEHOLDER = "[PLACEHOLDER — contenuto domanda di approfondimento non ancora definito, v. CLAUDE.md]"
-
-
 def _config_int(cur, chiave: str, default: int) -> int:
     cur.execute("SELECT valore FROM system_config WHERE chiave = %s", (chiave,))
     r = cur.fetchone()
@@ -153,25 +144,32 @@ def esegui(conn, dry_run=True):
             conn.rollback()
             risultati["Pillola"].append({"user_id": str(u["user_id"]), "esito": "errore", "dettaglio": str(e)})
 
-    # ── Domanda di approfondimento: il contenuto reale non è ancora
-    #    definito (v. CLAUDE.md) — crea comunque il record in
-    #    domande_approfondimento_risposte con un placeholder ESPLICITO,
-    #    per esercitare l'infrastruttura di scheduling end-to-end senza
-    #    bloccarsi sul contenuto, che nessun codice legge/mostra ancora. ──
+    # ── Domanda di approfondimento: usa il vero pool (engagement.
+    #    assegna_domande_affinamento(), Blocco E) — fino al 2026-09-09
+    #    questo trigger scriveva solo un placeholder in una tabella mai
+    #    letta da nessun endpoint (bug reale: "non arrivano le domande",
+    #    v. CLAUDE.md), rimasto scollegato dal vero meccanismo introdotto
+    #    il 24/08. Stesso pattern di "Pillola" sopra: se il pool per
+    #    questo utente è esaurito (nessun item nuovo), non si scrive
+    #    engagement_log — resta eleggibile al prossimo run invece di
+    #    essere silenziato per la soglia senza aver ricevuto nulla. ──
     soglia = _config_int(cur, SOGLIE["Domanda approfondimento"], 7)
     for u in _utenti_eleggibili(cur, "Domanda approfondimento", soglia):
         try:
             if dry_run:
                 risultati["Domanda approfondimento"].append({"user_id": str(u["user_id"]), "esito": "simulata"})
                 continue
-            cur.execute("""
-                INSERT INTO domande_approfondimento_risposte (user_id, domanda_testo)
-                VALUES (%s, %s) RETURNING risposta_id
-            """, (str(u["user_id"]), DOMANDA_PLACEHOLDER))
-            risposta_id = cur.fetchone()["risposta_id"]
-            _log_trigger(cur, u["user_id"], "Domanda approfondimento", risposta_id)
-            conn.commit()
-            risultati["Domanda approfondimento"].append({"user_id": str(u["user_id"]), "esito": "creata", "risposta_id": str(risposta_id)})
+            item = engagement.assegna_domande_affinamento(cur, u["user_id"])
+            if item:
+                _log_trigger(cur, u["user_id"], "Domanda approfondimento")
+                conn.commit()
+                risultati["Domanda approfondimento"].append({
+                    "user_id": str(u["user_id"]), "esito": "assegnate",
+                    "item_ids": [str(i["item_id"]) for i in item],
+                })
+            else:
+                conn.rollback()
+                risultati["Domanda approfondimento"].append({"user_id": str(u["user_id"]), "esito": "nessuna_domanda_disponibile"})
         except Exception as e:
             conn.rollback()
             risultati["Domanda approfondimento"].append({"user_id": str(u["user_id"]), "esito": "errore", "dettaglio": str(e)})
