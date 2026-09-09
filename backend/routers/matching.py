@@ -380,7 +380,10 @@ def proponi_match_singolo(user_id: UUID):
     differenza di RF-29 per il report personale), ma l'utente la vuole per
     questo test — v. CLAUDE.md. Notifica inviata a entrambe le parti, mai
     il contenuto/identità del match (RF-12, proposta anonima) — solo
-    l'invito a controllare la propria area personale."""
+    l'invito a controllare la propria area personale. RNF-12 (v. CLAUDE.md
+    2026-09-09): l'invio salta i profili demo — mancava all'implementazione
+    originale di questo endpoint, nonostante cerchi il candidato su tutto
+    il pool (quindi può abbinare un utente reale a uno dei ~1000 demo)."""
     conn = get_conn()
     cur = conn.cursor()
     pool = matching_engine.load_pool(cur)
@@ -424,10 +427,19 @@ def proponi_match_singolo(user_id: UUID):
     frontend_url = os.environ.get("FRONTEND_BASE_URL", "https://ainima.netlify.app")
     for uid in (str(user_id), str(cand_id)):
         try:
-            cur.execute("SELECT email FROM users WHERE user_id = %s", (uid,))
-            email = cur.fetchone()["email"]
+            cur.execute("SELECT email, is_demo FROM users WHERE user_id = %s", (uid,))
+            riga = cur.fetchone()
+            # RNF-12 (v. CLAUDE.md — stesso trattamento già in uso per la
+            # coda email di engagement e per il timeout match): questo
+            # trigger cerca il miglior candidato su TUTTO il pool, quindi
+            # può abbinare un utente reale a uno dei ~1000 profili demo —
+            # senza questo controllo l'email partirebbe comunque verso
+            # l'indirizzo sintetico di quel profilo.
+            if riga["is_demo"]:
+                print(f"[DEMO] invio email nuova proposta saltato per utente demo {uid}")
+                continue
             get_email_provider().invia_notifica(
-                email, "Hai una nuova proposta di abbinamento",
+                riga["email"], "Hai una nuova proposta di abbinamento",
                 "<p>Ainima ti ha proposto un nuovo abbinamento questo mese.</p>"
                 "<p>Vai alla tua area personale per scoprire chi è.</p>"
                 f"<p><a href=\"{frontend_url}/it/proposal\">Vedi la proposta</a></p>",
