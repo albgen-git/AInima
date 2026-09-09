@@ -6,4 +6,4 @@ export { ProgressSteps } from "./ProgressSteps";
 export { Spinner } from "./Spinner";
 export { Alert } from "./Alert";
 export { PageShell } from "./PageShell";
-export { CompatibilityBar } from "./CompatibilityBar";
+export { CompatibilitySummary } from "./CompatibilitySummary";

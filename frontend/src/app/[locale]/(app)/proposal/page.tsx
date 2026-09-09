@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Alert, Badge, Button, Card, CompatibilityBar, PageShell, Spinner } from "@/components/ui";
+import { Alert, Badge, Button, Card, CompatibilitySummary, PageShell, Spinner } from "@/components/ui";
 import {
   contactsApi,
   matchingApi,
@@ -169,7 +169,7 @@ export default function ProposalPage() {
       <Card className="mt-6">
         <h2 className="font-display text-xl text-navy">{t("analysisTitle")}</h2>
         <div className="mt-3">
-          <CompatibilityBar
+          <CompatibilitySummary
             analysis={analysis}
             loadingText={t("analysisLoading")}
             notReadyText={t("analysisNotReady")}

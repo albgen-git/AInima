@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Alert, Card, CompatibilityBar, PageShell } from "@/components/ui";
+import { Alert, Card, CompatibilitySummary, PageShell } from "@/components/ui";
 import { contactsApi, matchingApi, photoUrl, type ProposalAnalysisOut, type RubricaEntry } from "@/lib/api";
 import { useAsyncAction } from "@/lib/useAsyncAction";
 import { getUserId } from "@/lib/session";
@@ -81,7 +81,7 @@ export default function RubricaPage() {
                   {t("analysisTitle")}
                 </h3>
                 <div className="mt-2">
-                  <CompatibilityBar
+                  <CompatibilitySummary
                     analysis={analyses[entry.match_id] ?? null}
                     loadingText={t("analysisLoading")}
                     notReadyText={t("analysisNotReady")}
